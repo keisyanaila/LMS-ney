@@ -1,6 +1,11 @@
+
 import type { ReactNode } from "react";
-import type { Document } from "mongodb";
 import type { AdminNavItem } from "@/lib/admin-nav";
+
+export type AdminTableRow = {
+  id: number | string;
+  [key: string]: unknown;
+};
 
 export function PageHeader({
   item,
@@ -104,6 +109,7 @@ export function Badge({
     red: "bg-red-50 text-red-700",
     gray: "bg-black/5 text-black/60",
   };
+
   return (
     <span
       className={`inline-block rounded-full px-2.5 py-1 text-xs font-bold ${tones[tone]}`}
@@ -121,7 +127,10 @@ export function ErrorNotice({ message }: { message: string }) {
   );
 }
 
-export type Column = { key: string; label: string };
+export type Column = {
+  key: string;
+  label: string;
+};
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
@@ -139,9 +148,9 @@ export function DataTable({
   rowActions,
 }: {
   columns: Column[];
-  rows: Document[];
+  rows: AdminTableRow[];
   emptyText?: string;
-  rowActions?: (row: Document) => ReactNode;
+  rowActions?: (row: AdminTableRow) => ReactNode;
 }) {
   if (rows.length === 0) {
     return (
@@ -164,10 +173,11 @@ export function DataTable({
             {rowActions && <th className="px-3 py-3" />}
           </tr>
         </thead>
+
         <tbody>
           {rows.map((row) => (
             <tr
-              key={String(row._id)}
+              key={String(row.id)}
               className="border-b border-black/5 hover:bg-blue-50/40"
             >
               {columns.map((col) => (
@@ -175,8 +185,11 @@ export function DataTable({
                   {formatValue(row[col.key])}
                 </td>
               ))}
+
               {rowActions && (
-                <td className="px-3 py-3 text-right">{rowActions(row)}</td>
+                <td className="px-3 py-3 text-right">
+                  {rowActions(row)}
+                </td>
               )}
             </tr>
           ))}

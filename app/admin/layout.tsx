@@ -1,11 +1,17 @@
+
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Sidebar from "@/components/admin/Sidebar";
 
 export const metadata: Metadata = {
   title: "Admin | LMS Ney",
 };
 
-export default function AdminLayout({ children }: LayoutProps<"/admin">) {
+export default function AdminLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-black lg:flex-row">
       <Sidebar />

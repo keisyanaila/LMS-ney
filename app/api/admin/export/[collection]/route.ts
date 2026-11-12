@@ -1,62 +1,95 @@
-import type { NextRequest } from "next/server";
-import { getDb } from "@/lib/mongodb";
-import { collections, type CollectionKey } from "@/lib/admin-nav";
 
-// Field sensitif yang tidak boleh ikut diekspor
-const HIDDEN_FIELDS = new Set(["password", "passwordHash"]);
+import type { NextRequest } from "next/server";
+import { listDocs } from "@/lib/admin-data";
+import type { CollectionKey } from "@/lib/admin-nav";
+
+const ALLOWED_COLLECTIONS: CollectionKey[] = [
+  "users",
+  "teachers",
+  "students",
+  "majors",
+  "classes",
+  "logs",
+];
+
+const HIDDEN_FIELDS = new Set([
+  "password",
+  "passwordHash",
+]);
 
 function toCsvCell(value: unknown): string {
   if (value === null || value === undefined) return "";
+
   const text =
     value instanceof Date
       ? value.toISOString()
       : typeof value === "object"
         ? JSON.stringify(value)
         : String(value);
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+
+  return /[",\n\r]/.test(text)
+    ? `"${text.replace(/"/g, '""')}"`
+    : text;
 }
 
 export async function GET(
   _req: NextRequest,
-  ctx: RouteContext<"/api/admin/export/[collection]">
+  { params }: { params: Promise<{ collection: string }> }
 ) {
-  const { collection } = await ctx.params;
+  const { collection } = await params;
 
-  if (!(collection in collections)) {
+  if (!ALLOWED_COLLECTIONS.includes(collection as CollectionKey)) {
     return Response.json(
-      { success: false, message: `Koleksi "${collection}" tidak dikenal` },
+      {
+        success: false,
+        message: `Data "${collection}" tidak dikenal.`,
+      },
       { status: 404 }
     );
   }
 
   try {
-    const db = await getDb();
-    const docs = await db
-      .collection(collections[collection as CollectionKey])
-      .find()
-      .toArray();
+    const result = await listDocs(collection as CollectionKey, 10000);
+
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+
+    const docs = result.data;
 
     const headers = [
-      ...new Set(docs.flatMap((doc) => Object.keys(doc))),
+      ...new Set(
+        docs.flatMap((doc) => Object.keys(doc))
+      ),
     ].filter((key) => !HIDDEN_FIELDS.has(key));
 
     const csv = [
       headers.join(","),
-      ...docs.map((doc) => headers.map((h) => toCsvCell(doc[h])).join(",")),
+      ...docs.map((doc) =>
+        headers
+          .map((header) => toCsvCell(doc[header]))
+          .join(",")
+      ),
     ].join("\r\n");
 
     const date = new Date().toISOString().slice(0, 10);
-    return new Response("﻿" + csv, {
+
+    return new Response("\uFEFF" + csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${collection}-${date}.csv"`,
       },
     });
   } catch (error) {
+    console.error("Export CSV error:", error);
+
     return Response.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : String(error),
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengekspor data.",
       },
       { status: 500 }
     );
