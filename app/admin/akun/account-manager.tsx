@@ -1,210 +1,277 @@
-
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
+import Modal from "@/components/admin/Modal";
 import {
-  createAccount,
-  updateAccount,
-  toggleAccountStatus,
+  ACCOUNT_ROLES,
+  EDIT_KEYS,
+  FIELDS,
+  ROLE_LABELS,
+  isAccountRole,
+  type AccountRole,
+  type SimpleResult,
+} from "@/lib/account-config";
+import {
   deleteAccount,
   resetAccountPassword,
+  toggleAccountStatus,
+  updateAccount,
 } from "./actions";
+import AddAccountFlow from "./add-account";
+import {
+  CopyButton,
+  FieldInput,
+  Notice,
+  inputClass,
+  primaryButton,
+  secondaryButton,
+  type ClassOption,
+} from "./parts";
 
-type Account = {
+export type Account = {
   id: number;
   fullName: string;
   username: string;
   email: string;
   role: string;
   status: "active" | "inactive";
+  studentNumber: string | null;
+  className: string | null;
+  academicYear: string | null;
+  teacherNumber: string | null;
+  subject: string | null;
+  phone: string | null;
 };
 
-const roleLabels: Record<string, string> = {
-  admin: "Admin",
-  kepala_sekolah: "Kepala Sekolah",
-  kurikulum: "Kurikulum",
-  guru: "Guru",
-  murid: "Murid",
-};
+function detailOf(account: Account) {
+  if (account.role === "murid") {
+    return [
+      account.studentNumber && `NIS ${account.studentNumber}`,
+      account.className,
+      account.academicYear,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  if (account.role === "guru") {
+    return [account.subject, account.teacherNumber && `NIP ${account.teacherNumber}`]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  return "";
+}
 
-const inputClass =
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
+function valueOf(account: Account, key: keyof typeof FIELDS): string {
+  switch (key) {
+    case "fullName":
+      return account.fullName;
+    case "username":
+      return account.username;
+    case "email":
+      return account.email;
+    case "studentNumber":
+      return account.studentNumber ?? "";
+    case "className":
+      return account.className ?? "";
+    case "academicYear":
+      return account.academicYear ?? "";
+    case "teacherNumber":
+      return account.teacherNumber ?? "";
+    case "subject":
+      return account.subject ?? "";
+    case "phone":
+      return account.phone ?? "";
+  }
+}
 
-const buttonPrimary =
-  "rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800";
-
-const buttonSecondary =
-  "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50";
-
-function AccountFields({
+function EditDialogBody({
   account,
+  classes,
+  onSaved,
 }: {
-  account?: Account;
+  account: Account;
+  classes: ClassOption[];
+  onSaved: (message: string) => void;
 }) {
+  const [state, formAction, pending] = useActionState(updateAccount, null);
+  const role = account.role as AccountRole;
+
+  useEffect(() => {
+    if (state?.ok) onSaved(state.message);
+  }, [state, onSaved]);
+
   return (
-    <>
-      {account && (
-        <input type="hidden" name="id" value={account.id} />
-      )}
+    <form action={formAction} className="space-y-4">
+      <input type="hidden" name="id" value={account.id} />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5 text-sm font-medium text-slate-700">
-          Nama lengkap
-          <input
-            name="fullName"
-            defaultValue={account?.fullName}
-            required
-            maxLength={150}
-            placeholder="Masukkan nama lengkap"
-            className={inputClass}
+        {EDIT_KEYS[role].map((key) => (
+          <FieldInput
+            key={key}
+            field={FIELDS[key]}
+            classes={classes}
+            defaultValue={valueOf(account, key)}
           />
-        </label>
-
-        <label className="space-y-1.5 text-sm font-medium text-slate-700">
-          Username
-          <input
-            name="username"
-            defaultValue={account?.username}
-            required
-            maxLength={50}
-            placeholder="Masukkan username"
-            className={inputClass}
-          />
-        </label>
-
-        <label className="space-y-1.5 text-sm font-medium text-slate-700">
-          Email
-          <input
-            name="email"
-            type="email"
-            defaultValue={account?.email}
-            required
-            maxLength={150}
-            placeholder="nama@email.com"
-            className={inputClass}
-          />
-        </label>
-
-        <label className="space-y-1.5 text-sm font-medium text-slate-700">
-          Role
-          <select
-            name="role"
-            defaultValue={account?.role ?? "murid"}
-            required
-            className={inputClass}
-          >
-            <option value="admin">Admin</option>
-            <option value="kepala_sekolah">Kepala Sekolah</option>
-            <option value="kurikulum">Kurikulum</option>
-            <option value="guru">Guru</option>
-            <option value="murid">Murid</option>
-          </select>
-        </label>
+        ))}
       </div>
-    </>
+
+      {state && !state.ok && <Notice ok={false}>{state.message}</Notice>}
+
+      <div className="flex gap-2">
+        <button type="submit" disabled={pending} className={primaryButton}>
+          {pending ? "Menyimpan..." : "Simpan perubahan"}
+        </button>
+      </div>
+    </form>
   );
 }
 
 export default function AccountManager({
   accounts,
+  classes,
+  initialFilter,
+  initialAdd,
 }: {
   accounts: Account[];
+  classes: ClassOption[];
+  /** Filter jenis akun awal, mis. dari kartu dashboard. */
+  initialFilter: string | null;
+  /** "" = buka dialog tambah akun tanpa jenis; "murid" dst = langsung ke jenis itu. */
+  initialAdd: string | null;
 }) {
+  const [roleTab, setRoleTab] = useState<string>(
+    initialFilter && isAccountRole(initialFilter) ? initialFilter : "all"
+  );
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredAccounts = useMemo(() => {
+  const [addOpen, setAddOpen] = useState(initialAdd !== null);
+  const [addRole, setAddRole] = useState<AccountRole | null>(
+    initialAdd && isAccountRole(initialAdd) ? initialAdd : null
+  );
+  const [addKey, setAddKey] = useState(0);
+
+  const [editing, setEditing] = useState<Account | null>(null);
+  const [resetResult, setResetResult] = useState<SimpleResult | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+
+  const [notice, setNotice] = useState<SimpleResult | null>(null);
+  const [busy, startTransition] = useTransition();
+
+  const counts = useMemo(() => {
+    const result: Record<string, number> = { all: accounts.length };
+    for (const role of ACCOUNT_ROLES) {
+      result[role] = accounts.filter((a) => a.role === role).length;
+    }
+    return result;
+  }, [accounts]);
+
+  const filtered = useMemo(() => {
     const keyword = search.toLowerCase().trim();
 
     return accounts.filter((account) => {
-      const matchesSearch =
-        account.fullName.toLowerCase().includes(keyword) ||
-        account.username.toLowerCase().includes(keyword) ||
-        account.email.toLowerCase().includes(keyword);
+      if (roleTab !== "all" && account.role !== roleTab) return false;
+      if (statusFilter !== "all" && account.status !== statusFilter) return false;
+      if (!keyword) return true;
 
-      const matchesRole =
-        roleFilter === "all" || account.role === roleFilter;
-
-      const matchesStatus =
-        statusFilter === "all" || account.status === statusFilter;
-
-      return matchesSearch && matchesRole && matchesStatus;
+      return [
+        account.fullName,
+        account.username,
+        account.email,
+        account.studentNumber,
+        account.teacherNumber,
+        account.className,
+      ].some((value) => value?.toLowerCase().includes(keyword));
     });
-  }, [accounts, search, roleFilter, statusFilter]);
+  }, [accounts, roleTab, search, statusFilter]);
 
-  const activeCount = accounts.filter(
-    (account) => account.status === "active"
-  ).length;
+  const inactiveCount = accounts.filter((a) => a.status === "inactive").length;
 
-  const inactiveCount = accounts.length - activeCount;
+  function openAdd(role: AccountRole | null) {
+    setAddRole(role);
+    setAddKey((value) => value + 1);
+    setAddOpen(true);
+  }
+
+  function run(
+    action: (formData: FormData) => Promise<SimpleResult>,
+    fields: Record<string, string>,
+    onDone?: (result: SimpleResult) => void
+  ) {
+    const formData = new FormData();
+    for (const [name, value] of Object.entries(fields)) formData.set(name, value);
+
+    startTransition(async () => {
+      const result = await action(formData);
+      if (onDone) onDone(result);
+      else setNotice(result);
+    });
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-500">Total akun</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">
-            {accounts.length}
-          </p>
+    <div className="space-y-5">
+      {notice && (
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <Notice ok={notice.ok}>{notice.message}</Notice>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="text-sm text-black/50 hover:text-black"
+          >
+            Tutup
+          </button>
         </div>
+      )}
 
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-5">
-          <p className="text-sm text-emerald-700">Akun aktif</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-800">
-            {activeCount}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-5">
-          <p className="text-sm text-amber-700">Akun nonaktif</p>
-          <p className="mt-2 text-3xl font-bold text-amber-800">
-            {inactiveCount}
-          </p>
-        </div>
-      </div>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <section className="rounded-lg border border-black/10 bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              Daftar Akun
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Kelola seluruh akun pengguna LMS.
+            <h2 className="text-lg font-semibold">Daftar akun</h2>
+            <p className="mt-0.5 text-sm text-black/50">
+              {accounts.length} akun, {inactiveCount} nonaktif.
             </p>
           </div>
-
-          <a href="#form-tambah-akun" className={buttonPrimary}>
-            + Tambah Akun
-          </a>
+          <button type="button" onClick={() => openAdd(null)} className={primaryButton}>
+            + Tambah akun
+          </button>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <div className="mt-5 flex flex-wrap gap-1 border-b border-black/10" role="tablist">
+          {[["all", "Semua"], ...ACCOUNT_ROLES.map((r) => [r, ROLE_LABELS[r]])].map(
+            ([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={roleTab === value}
+                onClick={() => setRoleTab(value)}
+                className={`-mb-px border-b-2 px-3 py-2 text-sm transition ${
+                  roleTab === value
+                    ? "border-blue-600 font-bold text-blue-700"
+                    : "border-transparent text-black/60 hover:text-black"
+                }`}
+              >
+                {label} <span className="text-xs text-black/40">{counts[value]}</span>
+              </button>
+            )
+          )}
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px]">
           <input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Cari nama, username, email..."
+            placeholder="Cari nama, username, email, NIS, NIP, kelas"
+            aria-label="Cari akun"
             className={inputClass}
           />
-
-          <select
-            value={roleFilter}
-            onChange={(event) => setRoleFilter(event.target.value)}
-            className={inputClass}
-          >
-            <option value="all">Semua role</option>
-            {Object.entries(roleLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
+            aria-label="Filter status"
             className={inputClass}
           >
             <option value="all">Semua status</option>
@@ -213,131 +280,104 @@ export default function AccountManager({
           </select>
         </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[850px] text-left text-sm">
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-3">Pengguna</th>
-                <th className="px-3 py-3">Username</th>
-                <th className="px-3 py-3">Email</th>
-                <th className="px-3 py-3">Role</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3 text-right">Aksi</th>
+              <tr className="border-b border-black/10 text-xs text-black/50">
+                <th className="px-3 py-3 font-bold">Nama</th>
+                <th className="px-3 py-3 font-bold">Username</th>
+                <th className="px-3 py-3 font-bold">Jenis</th>
+                <th className="px-3 py-3 font-bold">Data</th>
+                <th className="px-3 py-3 font-bold">Status</th>
+                <th className="px-3 py-3 text-right font-bold">Aksi</th>
               </tr>
             </thead>
-
             <tbody>
-              {filteredAccounts.map((account) => (
-                <tr
-                  key={account.id}
-                  className="border-b border-slate-100 hover:bg-slate-50"
-                >
-                  <td className="px-3 py-4 font-semibold text-slate-800">
-                    {account.fullName}
+              {filtered.map((account) => (
+                <tr key={account.id} className="border-b border-black/5 hover:bg-blue-50/40">
+                  <td className="px-3 py-3">
+                    <div className="font-semibold">{account.fullName}</div>
+                    <div className="text-xs text-black/50">{account.email}</div>
                   </td>
-                  <td className="px-3 py-4 text-slate-600">
-                    {account.username}
-                  </td>
-                  <td className="px-3 py-4 text-slate-600">
-                    {account.email}
-                  </td>
-                  <td className="px-3 py-4">
-                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                      {roleLabels[account.role] ?? account.role}
+                  <td className="px-3 py-3">{account.username}</td>
+                  <td className="px-3 py-3">
+                    <span className="inline-block rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
+                      {isAccountRole(account.role) ? ROLE_LABELS[account.role] : account.role}
                     </span>
                   </td>
-                  <td className="px-3 py-4">
+                  <td className="px-3 py-3 text-black/60">{detailOf(account) || "-"}</td>
+                  <td className="px-3 py-3">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-bold ${
                         account.status === "active"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-slate-100 text-slate-600"
+                          ? "bg-green-50 text-green-700"
+                          : "bg-black/5 text-black/60"
                       }`}
                     >
                       {account.status === "active" ? "Aktif" : "Nonaktif"}
                     </span>
                   </td>
-                  <td className="px-3 py-4">
-                    <div className="flex justify-end gap-2">
-                      <details className="relative">
-                        <summary className={`${buttonSecondary} cursor-pointer list-none`}>
-                          Edit
-                        </summary>
-                        <div className="absolute right-0 z-20 mt-2 w-[min(90vw,520px)] rounded-xl border border-slate-200 bg-white p-5 text-left shadow-xl">
-                          <h3 className="mb-4 font-bold text-slate-900">
-                            Edit Akun
-                          </h3>
-                          <form action={updateAccount} className="space-y-4">
-                            <AccountFields account={account} />
-                            <button type="submit" className={buttonPrimary}>
-                              Simpan Perubahan
-                            </button>
-                          </form>
-                        </div>
-                      </details>
-
-                      <form action={toggleAccountStatus}>
-                        <input type="hidden" name="id" value={account.id} />
-                        <input
-                          type="hidden"
-                          name="status"
-                          value={account.status === "active" ? "inactive" : "active"}
-                        />
-                        <button type="submit" className={buttonSecondary}>
-                          {account.status === "active" ? "Nonaktifkan" : "Aktifkan"}
-                        </button>
-                      </form>
-
-                      <details className="relative">
-                        <summary className={`${buttonSecondary} cursor-pointer list-none`}>
-                          Password
-                        </summary>
-                        <div className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
-                          <h3 className="mb-3 font-bold text-slate-900">
-                            Reset Password
-                          </h3>
-                          <form action={resetAccountPassword} className="space-y-3">
-                            <input type="hidden" name="id" value={account.id} />
-                            <input
-                              name="password"
-                              type="password"
-                              minLength={8}
-                              required
-                              placeholder="Password baru"
-                              className={inputClass}
-                            />
-                            <button type="submit" className={buttonPrimary}>
-                              Simpan Password
-                            </button>
-                          </form>
-                        </div>
-                      </details>
-
-                      <form
-                        action={deleteAccount}
-                        onSubmit={(event) => {
-                          if (!window.confirm(`Hapus akun ${account.fullName}?`)) {
-                            event.preventDefault();
+                  <td className="px-3 py-3">
+                    <div className="flex justify-end gap-1.5">
+                      <button type="button" onClick={() => setEditing(account)} className={secondaryButton}>
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Buat password baru untuk ${account.fullName}? Password lama tidak berlaku lagi.`
+                            )
+                          ) {
+                            return;
+                          }
+                          run(resetAccountPassword, { id: String(account.id) }, (result) => {
+                            setResetResult(result);
+                            setResetOpen(true);
+                          });
+                        }}
+                        className={secondaryButton}
+                      >
+                        Password
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          run(toggleAccountStatus, {
+                            id: String(account.id),
+                            status: account.status === "active" ? "inactive" : "active",
+                          })
+                        }
+                        className={secondaryButton}
+                      >
+                        {account.status === "active" ? "Nonaktifkan" : "Aktifkan"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          if (window.confirm(`Hapus akun ${account.fullName}? Tindakan ini tidak bisa dibatalkan.`)) {
+                            run(deleteAccount, { id: String(account.id) });
                           }
                         }}
+                        className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-50"
                       >
-                        <input type="hidden" name="id" value={account.id} />
-                        <button
-                          type="submit"
-                          className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-                        >
-                          Hapus
-                        </button>
-                      </form>
+                        Hapus
+                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
 
-              {filteredAccounts.length === 0 && (
+              {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
-                    Tidak ada akun yang sesuai dengan pencarian.
+                  <td colSpan={6} className="px-4 py-12 text-center text-black/50">
+                    {accounts.length === 0
+                      ? "Belum ada akun. Klik Tambah akun untuk membuat yang pertama."
+                      : "Tidak ada akun yang sesuai dengan filter."}
                   </td>
                 </tr>
               )}
@@ -345,42 +385,51 @@ export default function AccountManager({
           </table>
         </div>
 
-        <p className="mt-4 text-xs text-slate-400">
-          Menampilkan {filteredAccounts.length} dari {accounts.length} akun.
+        <p className="mt-3 text-xs text-black/40">
+          Menampilkan {filtered.length} dari {accounts.length} akun.
         </p>
       </section>
 
-      <section
-        id="form-tambah-akun"
-        className="scroll-mt-6 rounded-xl border border-slate-200 bg-white p-5"
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Tambah akun" wide>
+        <AddAccountFlow key={addKey} classes={classes} initialRole={addRole} />
+      </Modal>
+
+      <Modal
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing ? `Edit akun ${ROLE_LABELS[editing.role as AccountRole] ?? ""}` : "Edit akun"}
       >
-        <h2 className="text-lg font-bold text-slate-900">
-          Tambah Akun Baru
-        </h2>
-        <p className="mb-5 mt-1 text-sm text-slate-500">
-          Isi informasi pengguna untuk membuat akun LMS.
-        </p>
+        {editing && (
+          <EditDialogBody
+            account={editing}
+            classes={classes}
+            onSaved={(message) => {
+              setEditing(null);
+              setNotice({ ok: true, message });
+            }}
+          />
+        )}
+      </Modal>
 
-        <form action={createAccount} className="space-y-5">
-          <AccountFields />
-
-          <label className="block max-w-md space-y-1.5 text-sm font-medium text-slate-700">
-            Password
-            <input
-              name="password"
-              type="password"
-              minLength={8}
-              required
-              placeholder="Minimal 8 karakter"
-              className={inputClass}
-            />
-          </label>
-
-          <button type="submit" className={buttonPrimary}>
-            Simpan Akun
-          </button>
-        </form>
-      </section>
+      <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="Password baru">
+        {resetResult && (
+          <div className="space-y-4">
+            <Notice ok={resetResult.ok}>{resetResult.message}</Notice>
+            {resetResult.ok && resetResult.password && (
+              <>
+                <div className="flex items-center justify-between gap-3 rounded-md border border-black/10 bg-slate-50 p-4">
+                  <code className="text-lg font-bold tracking-wide">{resetResult.password}</code>
+                  <CopyButton value={resetResult.password} />
+                </div>
+                <p className="text-sm text-black/60">
+                  Password ini hanya ditampilkan sekali. Berikan ke pemilik
+                  akun, lalu sarankan menggantinya setelah login.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

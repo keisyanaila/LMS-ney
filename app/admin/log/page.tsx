@@ -14,10 +14,9 @@ export default async function LogAktivitasPage() {
           <DataTable
             columns={[
               { key: "createdAt", label: "Waktu" },
-              { key: "user", label: "Pengguna" },
+              { key: "userName", label: "Pengguna" },
               { key: "role", label: "Role" },
               { key: "action", label: "Aktivitas" },
-              { key: "ip", label: "Alamat IP" },
             ]}
             rows={logs.data}
             emptyText="Belum ada aktivitas tercatat."

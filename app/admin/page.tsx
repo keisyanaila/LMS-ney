@@ -1,74 +1,171 @@
 import Link from "next/link";
-import { adminNav, getNavItem } from "@/lib/admin-nav";
-import { countDocs, listDocs } from "@/lib/admin-data";
+import { getNavItem } from "@/lib/admin-nav";
+import { getDashboardData } from "@/lib/admin-data";
+import {
+  ACCOUNT_ROLES,
+  ROLE_LABELS,
+  isAccountRole,
+} from "@/lib/account-config";
 import { Card, DataTable, ErrorNotice, PageHeader } from "@/components/admin/ui";
 
-const stats = [
-  { key: "users", label: "Total Akun" },
-  { key: "teachers", label: "Guru" },
-  { key: "students", label: "Murid" },
-  { key: "classes", label: "Kelas" },
-] as const;
-
 export default async function AdminDashboardPage() {
-  const [counts, logs] = await Promise.all([
-    countDocs(stats.map((s) => s.key)),
-    listDocs("logs", 5),
-  ]);
+  const result = await getDashboardData();
+
+  const actions = (
+    <>
+      <Link
+        href="/admin/akun?tambah=1"
+        className="rounded-md bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-500"
+      >
+        + Tambah akun
+      </Link>
+      <Link
+        href="/admin/impor-ekspor"
+        className="rounded-md border border-black/10 bg-white px-4 py-2.5 text-sm font-bold transition hover:bg-black/5"
+      >
+        Impor Excel
+      </Link>
+    </>
+  );
+
+  if (!result.ok) {
+    return (
+      <>
+        <PageHeader item={getNavItem("/admin")} actions={actions} />
+        <ErrorNotice message={result.error} />
+      </>
+    );
+  }
+
+  const data = result.data;
+  const maxStudents = Math.max(1, ...data.studentsPerClass.map((c) => c.total));
+
+  const attention: { text: string; href: string }[] = [];
+  if (data.studentsWithoutClass > 0) {
+    attention.push({
+      text: `${data.studentsWithoutClass} murid belum punya kelas`,
+      href: "/admin/akun?role=murid",
+    });
+  }
+  if (data.classesWithoutHomeroom > 0) {
+    attention.push({
+      text: `${data.classesWithoutHomeroom} kelas belum punya wali kelas`,
+      href: "/admin/jurusan-kelas",
+    });
+  }
+  if (data.inactiveAccounts > 0) {
+    attention.push({
+      text: `${data.inactiveAccounts} akun nonaktif`,
+      href: "/admin/akun",
+    });
+  }
 
   return (
     <>
-      <PageHeader item={getNavItem("/admin")} />
+      <PageHeader item={getNavItem("/admin")} actions={actions} />
 
-      {!counts.ok && (
-        <div className="mb-6">
-          <ErrorNotice message={counts.error} />
-        </div>
-      )}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        <Link
+          href="/admin/akun"
+          className="rounded-lg border border-black/10 bg-white p-5 transition hover:border-blue-300"
+        >
+          <div className="text-3xl font-bold">{data.totalAccounts}</div>
+          <div className="text-sm text-black/50">Total akun</div>
+        </Link>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.key}
-            className="rounded-lg border border-black/10 bg-white p-5"
+        {ACCOUNT_ROLES.map((role) => (
+          <Link
+            key={role}
+            href={`/admin/akun?role=${role}`}
+            className="rounded-lg border border-black/10 bg-white p-5 transition hover:border-blue-300"
           >
-            <div className="text-3xl font-bold">
-              {counts.ok ? counts.data[stat.key] : "—"}
-            </div>
-            <div className="text-sm text-black/50">{stat.label}</div>
-          </div>
+            <div className="text-3xl font-bold">{data.roleCounts[role] ?? 0}</div>
+            <div className="text-sm text-black/50">{ROLE_LABELS[role]}</div>
+          </Link>
         ))}
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Card title="Aktivitas Terbaru" className="lg:col-span-2">
-          {logs.ok ? (
-            <DataTable
-              columns={[
-                { key: "createdAt", label: "Waktu" },
-                { key: "user", label: "Pengguna" },
-                { key: "action", label: "Aktivitas" },
-              ]}
-              rows={logs.data}
-              emptyText="Belum ada aktivitas tercatat."
-            />
+        <Card title="Murid per kelas" className="lg:col-span-2">
+          {data.studentsPerClass.length === 0 ? (
+            <p className="text-sm text-black/50">
+              Belum ada kelas.{" "}
+              <Link href="/admin/jurusan-kelas" className="font-semibold text-blue-700 hover:underline">
+                Buat jurusan dan kelas
+              </Link>{" "}
+              agar murid bisa dimasukkan ke kelas.
+            </p>
           ) : (
-            <ErrorNotice message={logs.error} />
+            <ul className="space-y-3">
+              {data.studentsPerClass.map((item) => (
+                <li key={item.name} className="flex items-center gap-3 text-sm">
+                  <span className="w-28 shrink-0 truncate font-semibold">{item.name}</span>
+                  <div className="h-2.5 flex-1 rounded-full bg-black/5">
+                    <div
+                      className="h-2.5 rounded-full bg-blue-600"
+                      style={{ width: `${(item.total / maxStudents) * 100}%` }}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-right tabular-nums text-black/60">
+                    {item.total}
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
+          <p className="mt-4 text-xs text-black/40">
+            {data.majorCount} jurusan, {data.classCount} kelas.
+          </p>
         </Card>
 
-        <Card title="Akses Cepat">
-          <div className="grid grid-cols-2 gap-2">
-            {adminNav.slice(1).map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-md border border-black/10 px-3 py-2 text-sm transition hover:border-blue-200 hover:bg-blue-50"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
+        <Card title="Perlu dicek">
+          {attention.length === 0 ? (
+            <p className="text-sm text-black/50">Tidak ada yang perlu ditindaklanjuti.</p>
+          ) : (
+            <ul className="space-y-2">
+              {attention.map((item) => (
+                <li key={item.text}>
+                  <Link
+                    href={item.href}
+                    className="block rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 transition hover:bg-amber-100"
+                  >
+                    {item.text}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Card title="Akun terbaru">
+          <DataTable
+            columns={[
+              { key: "fullName", label: "Nama" },
+              { key: "roleLabel", label: "Jenis" },
+              { key: "createdAt", label: "Dibuat" },
+            ]}
+            rows={data.recentAccounts.map((row) => ({
+              ...row,
+              roleLabel: isAccountRole(String(row.role))
+                ? ROLE_LABELS[row.role as keyof typeof ROLE_LABELS]
+                : row.role,
+            }))}
+            emptyText="Belum ada akun."
+          />
+        </Card>
+
+        <Card title="Aktivitas terbaru">
+          <DataTable
+            columns={[
+              { key: "createdAt", label: "Waktu" },
+              { key: "userName", label: "Pengguna" },
+              { key: "action", label: "Aktivitas" },
+            ]}
+            rows={data.recentLogs}
+            emptyText="Belum ada aktivitas tercatat."
+          />
         </Card>
       </div>
     </>

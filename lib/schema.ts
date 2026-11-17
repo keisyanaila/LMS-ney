@@ -97,6 +97,7 @@ export const students = pgTable(
       .unique()
       .references(() => users.id, { onDelete: "cascade" }),
     studentNumber: varchar("student_number", { length: 50 }).unique(),
+    academicYear: varchar("academic_year", { length: 20 }),
     classId: integer("class_id")
       .references(() => classes.id, { onDelete: "set null" }),
     phone: varchar("phone", { length: 30 }),

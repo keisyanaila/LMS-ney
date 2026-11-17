@@ -1,5 +1,9 @@
 import { getNavItem } from "@/lib/admin-nav";
-import { Button, Card, PageHeader } from "@/components/admin/ui";
+import { Card, PageHeader } from "@/components/admin/ui";
+import ImportForm from "../akun/import-form";
+
+// Impor Excel meng-hash ratusan password, beri waktu lebih panjang.
+export const maxDuration = 60;
 
 const exportTargets = [
   { key: "users", label: "Akun Pengguna" },
@@ -16,37 +20,14 @@ export default function ImporEksporPage() {
       <PageHeader item={getNavItem("/admin/impor-ekspor")} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Impor Data">
-          <form className="space-y-4">
-            <label className="block">
-              <span className="mb-2 block text-sm font-bold">Jenis data</span>
-              <select
-                name="target"
-                className="w-full rounded-md border border-black/10 px-4 py-3 outline-none focus:border-blue-500"
-              >
-                <option value="teachers">Data Guru</option>
-                <option value="students">Data Murid</option>
-                <option value="users">Akun Pengguna</option>
-              </select>
-            </label>
-
-            <label className="block cursor-pointer rounded-lg border-2 border-dashed border-black/10 p-8 text-center transition hover:border-blue-400 hover:bg-blue-50/50">
-              <span className="mt-2 block text-sm font-bold">
-                Pilih file CSV atau Excel
-              </span>
-              <span className="text-xs text-black/40">
-                Format: .csv, .xlsx (maks. 5 MB)
-              </span>
-              <input type="file" accept=".csv,.xlsx" className="sr-only" />
-            </label>
-
-            <Button type="submit">Unggah & Impor</Button>
-          </form>
+        <Card title="Impor Akun dari Excel">
+          <ImportForm />
         </Card>
 
         <Card title="Ekspor Data">
           <p className="mb-4 text-sm text-black/50">
-            Unduh data dalam format CSV (bisa dibuka di Excel).
+            Unduh data dalam format CSV (bisa dibuka di Excel). Password tidak
+            ikut diekspor.
           </p>
           <ul className="divide-y divide-black/5">
             {exportTargets.map((target) => (
