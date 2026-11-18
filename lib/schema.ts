@@ -56,6 +56,14 @@ export const majors = pgTable(
   }
 );
 
+// Tahun ajaran
+export const academicYears = pgTable("academic_years", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 20 }).notNull().unique(),
+  isActive: boolean("is_active").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Guru
 export const teachers = pgTable(
   "teachers",

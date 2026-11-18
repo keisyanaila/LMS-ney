@@ -130,6 +130,8 @@ export function ErrorNotice({ message }: { message: string }) {
 export type Column = {
   key: string;
   label: string;
+  /** Tampilan sel kustom (mis. link). Jika kosong, nilai ditampilkan apa adanya. */
+  render?: (row: AdminTableRow) => ReactNode;
 };
 
 function formatValue(value: unknown): string {
@@ -182,7 +184,7 @@ export function DataTable({
             >
               {columns.map((col) => (
                 <td key={col.key} className="px-3 py-3">
-                  {formatValue(row[col.key])}
+                  {col.render ? col.render(row) : formatValue(row[col.key])}
                 </td>
               ))}
 

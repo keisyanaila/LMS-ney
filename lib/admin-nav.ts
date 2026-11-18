@@ -27,14 +27,14 @@ export const adminNav: AdminNavItem[] = [
     description: "Daftar murid beserta kelas dan jurusannya.",
   },
   {
-    href: "/admin/jurusan-kelas",
-    label: "Jurusan & Kelas",
-    description: "Kelola jurusan dan rombongan belajar.",
+    href: "/admin/kelas",
+    label: "Kelas",
+    description: "Kelola kelas, wali kelas, dan lihat daftar murid di setiap kelas.",
   },
   {
-    href: "/admin/impor-ekspor",
-    label: "Impor/Ekspor Data",
-    description: "Impor data massal atau ekspor data ke Excel.",
+    href: "/admin/ekspor",
+    label: "Ekspor Data",
+    description: "Unduh data LMS dalam format CSV yang bisa dibuka di Excel.",
   },
   {
     href: "/admin/log",
@@ -42,19 +42,14 @@ export const adminNav: AdminNavItem[] = [
     description: "Riwayat aktivitas pengguna di sistem.",
   },
   {
-    href: "/admin/konfigurasi",
-    label: "Konfigurasi Sistem",
-    description: "Pengaturan umum sekolah dan sistem LMS.",
+    href: "/admin/tahun-ajaran",
+    label: "Tahun Ajaran",
+    description: "Kelola tahun ajaran dan tentukan tahun ajaran yang sedang aktif.",
   },
   {
     href: "/admin/backup",
     label: "Backup & Pemulihan",
     description: "Cadangkan dan pulihkan data LMS.",
-  },
-  {
-    href: "/admin/profil",
-    label: "Profil Saya",
-    description: "Kelola informasi akun admin dan kata sandi.",
   },
 ];
 

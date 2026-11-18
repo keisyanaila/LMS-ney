@@ -15,6 +15,13 @@
       "when": 1794888918053,
       "tag": "0001_messy_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794974400000,
+      "tag": "0002_tahun_ajaran",
+      "breakpoints": true
     }
   ]
 }

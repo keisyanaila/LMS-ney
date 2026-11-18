@@ -20,10 +20,10 @@ export default async function AdminDashboardPage() {
         + Tambah akun
       </Link>
       <Link
-        href="/admin/impor-ekspor"
+        href="/admin/ekspor"
         className="rounded-md border border-black/10 bg-white px-4 py-2.5 text-sm font-bold transition hover:bg-black/5"
       >
-        Impor Excel
+        Ekspor Data
       </Link>
     </>
   );
@@ -50,7 +50,7 @@ export default async function AdminDashboardPage() {
   if (data.classesWithoutHomeroom > 0) {
     attention.push({
       text: `${data.classesWithoutHomeroom} kelas belum punya wali kelas`,
-      href: "/admin/jurusan-kelas",
+      href: "/admin/kelas",
     });
   }
   if (data.inactiveAccounts > 0) {
@@ -90,8 +90,8 @@ export default async function AdminDashboardPage() {
           {data.studentsPerClass.length === 0 ? (
             <p className="text-sm text-black/50">
               Belum ada kelas.{" "}
-              <Link href="/admin/jurusan-kelas" className="font-semibold text-blue-700 hover:underline">
-                Buat jurusan dan kelas
+              <Link href="/admin/kelas" className="font-semibold text-blue-700 hover:underline">
+                Buat kelas
               </Link>{" "}
               agar murid bisa dimasukkan ke kelas.
             </p>
