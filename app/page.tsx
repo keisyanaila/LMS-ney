@@ -1,21 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useActionState } from "react";
+import { login } from "@/app/actions/auth";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      alert("Login berhasil! (Simulasi)");
-    }, 1500);
-  };
+  const [state, formAction, isLoading] = useActionState(login, null);
 
   return (
     // FULL SCREEN - Menggunakan Cream Terang sebagai base
@@ -81,19 +71,19 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-7">
+          <form action={formAction} className="space-y-7">
             
             {/* Input Email */}
             <div className="relative group">
               <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-[#351F39]/60 mb-2 group-focus-within:text-[#351F39] transition-colors">
-                Alamat Email
+                Email / Username
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                name="identifier"
+                autoComplete="username"
                 required
-                placeholder="nama@sekolah.sch.id"
+                placeholder="nama@sekolah.sch.id atau username"
                 className="w-full bg-[#FDFBF7] border-2 border-[#351F39]/15 rounded-xl py-3.5 px-4 text-[#351F39] placeholder-[#351F39]/30 focus:outline-none focus:border-[#351F39] focus:bg-white transition-all duration-300 font-medium"
               />
             </div>
@@ -105,13 +95,22 @@ export default function LoginPage() {
               </label>
               <input
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                name="password"
+                autoComplete="current-password"
                 required
                 placeholder="••••••••"
                 className="w-full bg-[#FDFBF7] border-2 border-[#351F39]/15 rounded-xl py-3.5 px-4 text-[#351F39] placeholder-[#351F39]/30 focus:outline-none focus:border-[#351F39] focus:bg-white transition-all duration-300 font-medium"
               />
             </div>
+
+            {state?.message && (
+              <p
+                role="alert"
+                className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+              >
+                {state.message}
+              </p>
+            )}
 
             {/* Lupa Sandi & Ingat Saya */}
             <div className="flex justify-between items-center pt-1">

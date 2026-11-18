@@ -8,6 +8,8 @@ import {
   boolean,
   timestamp,
   integer,
+  numeric,
+  date,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -124,3 +126,139 @@ export const activityLogs = pgTable("activity_logs", {
   action: text("action").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Modul guru: kelas ajar, materi, tugas/penilaian, kehadiran
+// ---------------------------------------------------------------------------
+
+export const assessmentKindEnum = pgEnum("assessment_kind", [
+  "tugas",
+  "kuis",
+  "uts",
+  "uas",
+  "praktik",
+]);
+
+export const attendanceStatusEnum = pgEnum("attendance_status", [
+  "hadir",
+  "izin",
+  "sakit",
+  "alpa",
+]);
+
+// Kelas ajar: satu guru mengajar satu mata pelajaran di satu kelas (rombel).
+export const teachingClasses = pgTable(
+  "teaching_classes",
+  {
+    id: serial("id").primaryKey(),
+    teacherId: integer("teacher_id")
+      .notNull()
+      .references(() => teachers.id, { onDelete: "cascade" }),
+    classId: integer("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    subject: varchar("subject", { length: 150 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("teaching_classes_unique").on(
+      table.teacherId,
+      table.classId,
+      table.subject
+    ),
+  ]
+);
+
+// Materi pembelajaran
+export const materials = pgTable("materials", {
+  id: serial("id").primaryKey(),
+  teachingClassId: integer("teaching_class_id")
+    .notNull()
+    .references(() => teachingClasses.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 200 }).notNull(),
+  description: text("description"),
+  linkUrl: text("link_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Item penilaian: tugas, kuis, UTS, UAS, praktik
+export const assessments = pgTable("assessments", {
+  id: serial("id").primaryKey(),
+  teachingClassId: integer("teaching_class_id")
+    .notNull()
+    .references(() => teachingClasses.id, { onDelete: "cascade" }),
+  kind: assessmentKindEnum("kind").default("tugas").notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  instructions: text("instructions"),
+  dueAt: timestamp("due_at"),
+  maxScore: integer("max_score").default(100).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Pengumpulan dan nilai murid untuk satu item penilaian
+export const submissions = pgTable(
+  "submissions",
+  {
+    id: serial("id").primaryKey(),
+    assessmentId: integer("assessment_id")
+      .notNull()
+      .references(() => assessments.id, { onDelete: "cascade" }),
+    studentId: integer("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    answer: text("answer"),
+    linkUrl: text("link_url"),
+    submittedAt: timestamp("submitted_at"),
+    score: numeric("score", { precision: 5, scale: 2, mode: "number" }),
+    feedback: text("feedback"),
+    gradedAt: timestamp("graded_at"),
+  },
+  (table) => [
+    uniqueIndex("submissions_assessment_student_unique").on(
+      table.assessmentId,
+      table.studentId
+    ),
+  ]
+);
+
+// Pertemuan (sesi absensi)
+export const attendanceSessions = pgTable(
+  "attendance_sessions",
+  {
+    id: serial("id").primaryKey(),
+    teachingClassId: integer("teaching_class_id")
+      .notNull()
+      .references(() => teachingClasses.id, { onDelete: "cascade" }),
+    meetingDate: date("meeting_date", { mode: "string" }).notNull(),
+    topic: varchar("topic", { length: 200 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("attendance_sessions_class_date_unique").on(
+      table.teachingClassId,
+      table.meetingDate
+    ),
+  ]
+);
+
+// Kehadiran murid per pertemuan
+export const attendanceRecords = pgTable(
+  "attendance_records",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: integer("session_id")
+      .notNull()
+      .references(() => attendanceSessions.id, { onDelete: "cascade" }),
+    studentId: integer("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    status: attendanceStatusEnum("status").default("hadir").notNull(),
+    note: varchar("note", { length: 200 }),
+  },
+  (table) => [
+    uniqueIndex("attendance_records_session_student_unique").on(
+      table.sessionId,
+      table.studentId
+    ),
+  ]
+);
