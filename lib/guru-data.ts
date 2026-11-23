@@ -10,11 +10,14 @@ import {
   isNull,
 } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { computeFinalScore, type Weights } from "@/lib/grading";
 import {
+  announcements,
   assessments,
   attendanceRecords,
   attendanceSessions,
   classes,
+  gradeWeights,
   majors,
   materials,
   students,
@@ -180,18 +183,31 @@ export async function listSubmissions(assessmentId: number) {
     .where(eq(submissions.assessmentId, assessmentId));
 }
 
+/** Bobot nilai kelas ajar; null jika guru belum mengaturnya. */
+export async function getWeights(teachingClassId: number): Promise<Weights | null> {
+  const rows = await db
+    .select({ kind: gradeWeights.kind, weight: gradeWeights.weight })
+    .from(gradeWeights)
+    .where(eq(gradeWeights.teachingClassId, teachingClassId));
+
+  if (rows.length === 0) return null;
+
+  return Object.fromEntries(rows.map((r) => [r.kind, r.weight])) as Weights;
+}
+
 /** Rekap nilai: semua murid x semua item penilaian di satu kelas ajar. */
 export async function getGradeMatrix(
   teachingClassId: number,
   classId: number
 ) {
-  const [studentRows, items] = await Promise.all([
+  const [studentRows, items, weights] = await Promise.all([
     listClassStudents(classId),
     db
       .select()
       .from(assessments)
       .where(eq(assessments.teachingClassId, teachingClassId))
       .orderBy(asc(assessments.createdAt)),
+    getWeights(teachingClassId),
   ]);
 
   const scoreRows =
@@ -220,27 +236,55 @@ export async function getGradeMatrix(
   }
 
   const rows = studentRows.map((student) => {
-    const percentages: number[] = [];
+    const scores = items.map(
+      (item) => scoreMap.get(`${student.id}:${item.id}`) ?? null
+    );
 
-    const scores = items.map((item) => {
-      const score = scoreMap.get(`${student.id}:${item.id}`) ?? null;
-
-      if (score !== null && item.maxScore > 0) {
-        percentages.push((score / item.maxScore) * 100);
-      }
-
-      return score;
-    });
-
-    const average =
-      percentages.length > 0
-        ? percentages.reduce((sum, p) => sum + p, 0) / percentages.length
-        : null;
+    const average = computeFinalScore(
+      items,
+      (itemId) => scoreMap.get(`${student.id}:${itemId}`) ?? null,
+      weights
+    );
 
     return { student, scores, average };
   });
 
-  return { items, rows };
+  return { items, rows, weights };
+}
+
+export async function listAnnouncements(teachingClassId: number) {
+  return db
+    .select()
+    .from(announcements)
+    .where(eq(announcements.teachingClassId, teachingClassId))
+    .orderBy(desc(announcements.createdAt));
+}
+
+/** Per item: berapa murid sudah mengumpulkan dan berapa yang sudah dinilai. */
+export async function getSubmissionCounts(assessmentIds: number[]) {
+  const result = new Map<number, { submitted: number; graded: number }>();
+
+  if (assessmentIds.length === 0) return result;
+
+  const rows = await db
+    .select({
+      assessmentId: submissions.assessmentId,
+      submittedAt: submissions.submittedAt,
+      score: submissions.score,
+    })
+    .from(submissions)
+    .where(inArray(submissions.assessmentId, assessmentIds));
+
+  for (const row of rows) {
+    const entry = result.get(row.assessmentId) ?? { submitted: 0, graded: 0 };
+
+    if (row.submittedAt) entry.submitted += 1;
+    if (row.score !== null) entry.graded += 1;
+
+    result.set(row.assessmentId, entry);
+  }
+
+  return result;
 }
 
 export async function listAttendanceSessions(teachingClassId: number) {
@@ -431,4 +475,52 @@ export async function countScoredByAssessment(assessmentIds: number[]) {
     .groupBy(submissions.assessmentId);
 
   return new Map(rows.map((row) => [row.assessmentId, row.total]));
+}
+
+/** Absensi lengkap: murid x pertemuan (untuk export Excel). */
+export async function getAttendanceMatrix(
+  teachingClassId: number,
+  classId: number
+) {
+  const [studentRows, sessions] = await Promise.all([
+    listClassStudents(classId),
+    db
+      .select()
+      .from(attendanceSessions)
+      .where(eq(attendanceSessions.teachingClassId, teachingClassId))
+      .orderBy(asc(attendanceSessions.meetingDate)),
+  ]);
+
+  const records =
+    sessions.length === 0
+      ? []
+      : await db
+          .select({
+            sessionId: attendanceRecords.sessionId,
+            studentId: attendanceRecords.studentId,
+            status: attendanceRecords.status,
+          })
+          .from(attendanceRecords)
+          .where(
+            inArray(
+              attendanceRecords.sessionId,
+              sessions.map((s) => s.id)
+            )
+          );
+
+  const statusMap = new Map<string, AttendanceStatus>();
+
+  for (const r of records) {
+    statusMap.set(`${r.studentId}:${r.sessionId}`, r.status);
+  }
+
+  return {
+    sessions,
+    rows: studentRows.map((student) => ({
+      student,
+      statuses: sessions.map(
+        (session) => statusMap.get(`${student.id}:${session.id}`) ?? null
+      ),
+    })),
+  };
 }

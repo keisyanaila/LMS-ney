@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTeacher } from "@/lib/auth";
 import { getOwnedTeachingClass, listMaterials } from "@/lib/guru-data";
@@ -22,6 +23,11 @@ export default async function MateriPage({
 
   return (
     <>
+      <p className="mb-4 text-sm text-black/60">
+        Materi yang Anda tambahkan langsung bisa dibuka murid. Isi dengan
+        penjelasan singkat, link, atau lampiran file.
+      </p>
+
       <Card title="Tambah materi" className="mb-6">
         <MaterialForm tcId={kelas.id} />
       </Card>
@@ -44,14 +50,23 @@ export default async function MateriPage({
                     {formatDateTime(item.createdAt)}
                   </p>
                 </div>
-                <DeleteButton
-                  action={deleteMaterial.bind(
-                    null,
-                    String(kelas.id),
-                    String(item.id)
-                  )}
-                  label={`materi "${item.title}"`}
-                />
+                <div className="flex items-center gap-4">
+                  <Link
+                    href={`/guru/kelas/${kelas.id}/materi/${item.id}/edit`}
+                    className="text-xs font-semibold text-blue-700 hover:underline"
+                  >
+                    Edit
+                  </Link>
+                  <DeleteButton
+                    action={deleteMaterial.bind(
+                      null,
+                      String(kelas.id),
+                      String(item.id)
+                    )}
+                    label={`materi "${item.title}"`}
+                    warning="File lampiran ikut terhapus."
+                  />
+                </div>
               </div>
 
               {item.description && (
@@ -60,16 +75,28 @@ export default async function MateriPage({
                 </p>
               )}
 
-              {item.linkUrl && (
-                <a
-                  href={item.linkUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-block break-all text-sm font-semibold text-blue-700 hover:underline"
-                >
-                  Buka materi &rarr;
-                </a>
-              )}
+              <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm font-semibold">
+                {item.fileId && (
+                  <a
+                    href={`/api/files/${item.fileId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all text-blue-700 hover:underline"
+                  >
+                    {item.fileName ?? "Unduh file"}
+                  </a>
+                )}
+                {item.linkUrl && (
+                  <a
+                    href={item.linkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all text-blue-700 hover:underline"
+                  >
+                    Buka link &rarr;
+                  </a>
+                )}
+              </div>
             </section>
           ))}
         </div>

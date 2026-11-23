@@ -1,15 +1,21 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import { useState } from "react";
 import {
+  createAnnouncement,
   createAssessment,
   createAttendanceSession,
   createMaterial,
   createTeachingClass,
   saveAttendance,
   saveScores,
+  saveWeights,
+  updateAssessment,
+  updateMaterial,
   type FormState,
 } from "./actions";
+import { ACCEPT_ATTRIBUTE, MAX_UPLOAD_LABEL } from "@/lib/upload-config";
 
 const inputClass =
   "w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-blue-500";
@@ -100,6 +106,75 @@ export function TeachingClassForm({
 
 // ---------- Materi ----------
 
+type BoundAction = (prev: FormState, formData: FormData) => Promise<FormState>;
+
+function FileField({ hint }: { hint?: string }) {
+  return (
+    <label className="block text-sm">
+      <span className="mb-1 block font-semibold">Lampiran file (opsional)</span>
+      <input
+        name="file"
+        type="file"
+        accept={ACCEPT_ATTRIBUTE}
+        className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+      />
+      <span className="mt-1 block text-xs text-black/50">
+        {hint ?? `PDF, Word, PowerPoint, Excel, gambar, atau ZIP. Maksimal ${MAX_UPLOAD_LABEL}.`}
+      </span>
+    </label>
+  );
+}
+
+function MaterialFields({
+  initial,
+}: {
+  initial?: {
+    title: string;
+    description: string | null;
+    linkUrl: string | null;
+    fileName: string | null;
+  };
+}) {
+  return (
+    <>
+      <input
+        name="title"
+        placeholder="Judul materi"
+        defaultValue={initial?.title}
+        className={inputClass}
+        required
+      />
+      <textarea
+        name="description"
+        placeholder="Ringkasan atau penjelasan materi (opsional)"
+        rows={4}
+        defaultValue={initial?.description ?? ""}
+        className={inputClass}
+      />
+      <input
+        name="linkUrl"
+        type="url"
+        placeholder="Link materi, mis. Google Drive atau YouTube (opsional)"
+        defaultValue={initial?.linkUrl ?? ""}
+        className={inputClass}
+      />
+      <FileField
+        hint={
+          initial?.fileName
+            ? `File saat ini: ${initial.fileName}. Pilih file baru untuk menggantinya.`
+            : undefined
+        }
+      />
+      {initial?.fileName && (
+        <label className="flex items-center gap-2 text-sm text-black/70">
+          <input type="checkbox" name="removeFile" />
+          Hapus file saat ini
+        </label>
+      )}
+    </>
+  );
+}
+
 export function MaterialForm({ tcId }: { tcId: number }) {
   const [state, action, pending] = useActionState(
     createMaterial.bind(null, String(tcId)),
@@ -109,27 +184,8 @@ export function MaterialForm({ tcId }: { tcId: number }) {
 
   return (
     <form ref={ref} action={action} className="space-y-3">
-      <input
-        name="title"
-        placeholder="Judul materi"
-        className={inputClass}
-        required
-      />
-      <textarea
-        name="description"
-        placeholder="Ringkasan atau isi materi (opsional)"
-        rows={4}
-        className={inputClass}
-      />
-      <input
-        name="linkUrl"
-        type="url"
-        placeholder="Link materi, mis. Google Drive atau YouTube (opsional)"
-        className={inputClass}
-      />
-
+      <MaterialFields />
       <Message state={state} />
-
       <button type="submit" disabled={pending} className={primaryButton}>
         {pending ? "Menyimpan..." : "Tambah Materi"}
       </button>
@@ -137,7 +193,136 @@ export function MaterialForm({ tcId }: { tcId: number }) {
   );
 }
 
+export function MaterialEditForm({
+  tcId,
+  material,
+}: {
+  tcId: number;
+  material: {
+    id: number;
+    title: string;
+    description: string | null;
+    linkUrl: string | null;
+    fileName: string | null;
+  };
+}) {
+  const [state, action, pending] = useActionState<FormState, FormData>(
+    updateMaterial.bind(null, String(tcId), String(material.id)) as BoundAction,
+    null
+  );
+
+  return (
+    <form action={action} className="space-y-3">
+      <MaterialFields initial={material} />
+      <Message state={state} />
+      <button type="submit" disabled={pending} className={primaryButton}>
+        {pending ? "Menyimpan..." : "Simpan Perubahan"}
+      </button>
+    </form>
+  );
+}
+
+// ---------- Pengumuman ----------
+
+export function AnnouncementForm({ tcId }: { tcId: number }) {
+  const [state, action, pending] = useActionState(
+    createAnnouncement.bind(null, String(tcId)),
+    null
+  );
+  const ref = useResetOnSuccess(state);
+
+  return (
+    <form ref={ref} action={action} className="space-y-3">
+      <input
+        name="title"
+        placeholder="Judul pengumuman"
+        className={inputClass}
+        required
+      />
+      <textarea
+        name="body"
+        placeholder="Isi pengumuman untuk murid di kelas ini"
+        rows={4}
+        className={inputClass}
+        required
+      />
+      <Message state={state} />
+      <button type="submit" disabled={pending} className={primaryButton}>
+        {pending ? "Mengirim..." : "Kirim Pengumuman"}
+      </button>
+    </form>
+  );
+}
+
 // ---------- Tugas / penilaian ----------
+
+function AssessmentFields({
+  mode,
+  initial,
+}: {
+  mode: "tugas" | "lainnya";
+  initial?: {
+    title: string;
+    instructions: string | null;
+    dueAt: string;
+    maxScore: number;
+  };
+}) {
+  return (
+    <>
+      {mode === "lainnya" && !initial && (
+        <select name="kind" className={inputClass} defaultValue="kuis">
+          <option value="kuis">Kuis</option>
+          <option value="uts">UTS</option>
+          <option value="uas">UAS</option>
+          <option value="praktik">Praktik</option>
+        </select>
+      )}
+
+      <input
+        name="title"
+        placeholder={mode === "tugas" ? "Judul tugas" : "Judul penilaian"}
+        defaultValue={initial?.title}
+        className={inputClass}
+        required
+      />
+
+      <textarea
+        name="instructions"
+        placeholder="Instruksi untuk murid (opsional)"
+        rows={3}
+        defaultValue={initial?.instructions ?? ""}
+        className={inputClass}
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block text-sm">
+          <span className="mb-1 block font-semibold">
+            {mode === "tugas" ? "Tenggat (WIB)" : "Tanggal (WIB)"}
+          </span>
+          <input
+            name="dueAt"
+            type="datetime-local"
+            defaultValue={initial?.dueAt}
+            className={inputClass}
+          />
+        </label>
+
+        <label className="block text-sm">
+          <span className="mb-1 block font-semibold">Nilai maksimal</span>
+          <input
+            name="maxScore"
+            type="number"
+            min={1}
+            max={1000}
+            defaultValue={initial?.maxScore ?? 100}
+            className={inputClass}
+          />
+        </label>
+      </div>
+    </>
+  );
+}
 
 export function AssessmentForm({
   tcId,
@@ -154,56 +339,127 @@ export function AssessmentForm({
 
   return (
     <form ref={ref} action={action} className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {mode === "lainnya" && (
-          <select name="kind" className={inputClass} defaultValue="kuis">
-            <option value="kuis">Kuis</option>
-            <option value="uts">UTS</option>
-            <option value="uas">UAS</option>
-            <option value="praktik">Praktik</option>
-          </select>
-        )}
+      <AssessmentFields mode={mode} />
+      <Message state={state} />
+      <button type="submit" disabled={pending} className={primaryButton}>
+        {pending
+          ? "Menyimpan..."
+          : mode === "tugas"
+            ? "Buat Tugas"
+            : "Buat Penilaian"}
+      </button>
+    </form>
+  );
+}
 
-        <input
-          name="title"
-          placeholder={mode === "tugas" ? "Judul tugas" : "Judul penilaian"}
-          className={`${inputClass} ${mode === "tugas" ? "sm:col-span-2" : ""}`}
-          required
-        />
-      </div>
+export function AssessmentEditForm({
+  tcId,
+  assessment,
+}: {
+  tcId: number;
+  assessment: {
+    id: number;
+    kind: string;
+    title: string;
+    instructions: string | null;
+    dueAt: string;
+    maxScore: number;
+  };
+}) {
+  const [state, action, pending] = useActionState<FormState, FormData>(
+    updateAssessment.bind(
+      null,
+      String(tcId),
+      String(assessment.id)
+    ) as BoundAction,
+    null
+  );
 
-      <textarea
-        name="instructions"
-        placeholder="Instruksi (opsional)"
-        rows={3}
-        className={inputClass}
+  return (
+    <form action={action} className="space-y-3">
+      <AssessmentFields
+        mode={assessment.kind === "tugas" ? "tugas" : "lainnya"}
+        initial={assessment}
       />
+      <Message state={state} />
+      <button type="submit" disabled={pending} className={primaryButton}>
+        {pending ? "Menyimpan..." : "Simpan Perubahan"}
+      </button>
+    </form>
+  );
+}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="mb-1 block font-semibold">
-            Tenggat / tanggal (WIB)
-          </span>
-          <input name="dueAt" type="datetime-local" className={inputClass} />
-        </label>
+// ---------- Bobot nilai ----------
 
-        <label className="block text-sm">
-          <span className="mb-1 block font-semibold">Nilai maksimal</span>
-          <input
-            name="maxScore"
-            type="number"
-            min={1}
-            max={1000}
-            defaultValue={100}
-            className={inputClass}
-          />
-        </label>
+const WEIGHT_FIELDS = [
+  { kind: "tugas", label: "Tugas" },
+  { kind: "kuis", label: "Kuis" },
+  { kind: "uts", label: "UTS" },
+  { kind: "uas", label: "UAS" },
+  { kind: "praktik", label: "Praktik" },
+] as const;
+
+export function WeightsForm({
+  tcId,
+  current,
+}: {
+  tcId: number;
+  current: Partial<Record<string, number>> | null;
+}) {
+  const [state, action, pending] = useActionState(
+    saveWeights.bind(null, String(tcId)),
+    null
+  );
+
+  const [values, setValues] = useState<Record<string, string>>(
+    Object.fromEntries(
+      WEIGHT_FIELDS.map((f) => [f.kind, String(current?.[f.kind] ?? "")])
+    )
+  );
+
+  const total = WEIGHT_FIELDS.reduce(
+    (sum, f) => sum + (Number(values[f.kind]) || 0),
+    0
+  );
+
+  return (
+    <form action={action} className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-5">
+        {WEIGHT_FIELDS.map((field) => (
+          <label key={field.kind} className="block text-sm">
+            <span className="mb-1 block font-semibold">{field.label} (%)</span>
+            <input
+              name={`weight-${field.kind}`}
+              type="number"
+              min={0}
+              max={100}
+              value={values[field.kind]}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, [field.kind]: e.target.value }))
+              }
+              placeholder="0"
+              className={inputClass}
+            />
+          </label>
+        ))}
       </div>
+
+      <p
+        className={`text-sm font-semibold ${
+          total === 100 ? "text-green-700" : "text-black/60"
+        }`}
+      >
+        Total: {total} / 100
+      </p>
 
       <Message state={state} />
 
-      <button type="submit" disabled={pending} className={primaryButton}>
-        {pending ? "Menyimpan..." : mode === "tugas" ? "Buat Tugas" : "Buat Penilaian"}
+      <button
+        type="submit"
+        disabled={pending || total !== 100}
+        className={primaryButton}
+      >
+        {pending ? "Menyimpan..." : "Simpan Bobot"}
       </button>
     </form>
   );
@@ -214,6 +470,10 @@ export type ScoreRow = {
   fullName: string;
   studentNumber: string | null;
   submissionLabel: string;
+  answer: string | null;
+  linkUrl: string | null;
+  fileId: number | null;
+  fileName: string | null;
   score: number | null;
   feedback: string | null;
 };
@@ -264,7 +524,37 @@ export function ScoreForm({
                   </div>
                 </td>
                 <td className="px-3 py-2 text-xs text-black/60">
-                  {row.submissionLabel}
+                  <div>{row.submissionLabel}</div>
+                  {row.fileId && (
+                    <a
+                      href={`/api/files/${row.fileId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 block break-all font-semibold text-blue-700 hover:underline"
+                    >
+                      {row.fileName ?? "Unduh file"}
+                    </a>
+                  )}
+                  {row.linkUrl && (
+                    <a
+                      href={row.linkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 block break-all font-semibold text-blue-700 hover:underline"
+                    >
+                      Buka link
+                    </a>
+                  )}
+                  {row.answer && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer font-semibold text-blue-700">
+                        Lihat jawaban
+                      </summary>
+                      <p className="mt-1 whitespace-pre-wrap text-black/70">
+                        {row.answer}
+                      </p>
+                    </details>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <input

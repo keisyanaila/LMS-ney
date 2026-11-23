@@ -2,13 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+  announcements,
   assessments,
   attendanceRecords,
   attendanceSessions,
   classes,
+  gradeWeights,
   materials,
   submissions,
   teachingClasses,
@@ -26,6 +28,7 @@ import {
   type AttendanceStatus,
 } from "@/lib/guru-data";
 import { parseJakartaLocal } from "@/lib/format";
+import { deleteFile, pickFile, uploadFile } from "@/lib/storage";
 
 export type FormState = {
   ok: boolean;
@@ -62,6 +65,11 @@ async function authorize(tcId: string) {
   };
 
   return { teacher, kelas, actor };
+}
+
+/** Data kelas ajar tampil juga di panel siswa. */
+function revalidateStudents() {
+  revalidatePath("/siswa", "layout");
 }
 
 const notFound: FormState = {
@@ -126,7 +134,34 @@ export async function deleteTeachingClass(tcId: string): Promise<void> {
   if (!kelas) return;
 
   try {
+    // Kumpulkan file dulu: baris database ikut terhapus lewat cascade.
+    const [materialFiles, submissionFiles] = await Promise.all([
+      db
+        .select({ id: materials.fileId })
+        .from(materials)
+        .where(
+          and(
+            eq(materials.teachingClassId, kelas.id),
+            isNotNull(materials.fileId)
+          )
+        ),
+      db
+        .select({ id: submissions.fileId })
+        .from(submissions)
+        .innerJoin(assessments, eq(submissions.assessmentId, assessments.id))
+        .where(
+          and(
+            eq(assessments.teachingClassId, kelas.id),
+            isNotNull(submissions.fileId)
+          )
+        ),
+    ]);
+
     await db.delete(teachingClasses).where(eq(teachingClasses.id, kelas.id));
+
+    await Promise.all(
+      [...materialFiles, ...submissionFiles].map((f) => deleteFile(f.id))
+    );
 
     await logActivity(
       `Menghapus kelas ajar ${kelas.subject} di ${kelas.className}`,
@@ -134,6 +169,7 @@ export async function deleteTeachingClass(tcId: string): Promise<void> {
     );
 
     revalidatePath("/guru", "layout");
+    revalidateStudents();
   } catch (error) {
     console.error("Delete teaching class error:", error);
     return;
@@ -144,6 +180,26 @@ export async function deleteTeachingClass(tcId: string): Promise<void> {
 
 // ---------- Materi ----------
 
+type MaterialInput = {
+  title: string;
+  description: string;
+  linkUrl: string;
+};
+
+function readMaterial(formData: FormData): MaterialInput | string {
+  const title = text(formData, "title");
+  const description = text(formData, "description");
+  const linkUrl = text(formData, "linkUrl");
+
+  if (!title) return "Judul materi wajib diisi.";
+  if (title.length > 200) return "Judul maksimal 200 karakter.";
+  if (linkUrl && !isHttpUrl(linkUrl)) {
+    return "Link harus diawali http:// atau https://.";
+  }
+
+  return { title, description, linkUrl };
+}
+
 export async function createMaterial(
   tcId: string,
   _prev: FormState,
@@ -153,41 +209,127 @@ export async function createMaterial(
 
   if (!kelas) return notFound;
 
-  const title = text(formData, "title");
-  const description = text(formData, "description");
-  const linkUrl = text(formData, "linkUrl");
+  const input = readMaterial(formData);
 
-  if (!title) return { ok: false, message: "Judul materi wajib diisi." };
-  if (title.length > 200) {
-    return { ok: false, message: "Judul maksimal 200 karakter." };
-  }
-  if (linkUrl && !isHttpUrl(linkUrl)) {
-    return {
-      ok: false,
-      message: "Link harus diawali http:// atau https://.",
-    };
+  if (typeof input === "string") return { ok: false, message: input };
+
+  let fileId: number | null = null;
+  let fileName: string | null = null;
+
+  const file = pickFile(formData, "file");
+
+  if (file) {
+    const uploaded = await uploadFile(file);
+
+    if (!uploaded.ok) return { ok: false, message: uploaded.message };
+
+    fileId = uploaded.id;
+    fileName = uploaded.name;
   }
 
   try {
     await db.insert(materials).values({
       teachingClassId: kelas.id,
-      title,
-      description: description || null,
-      linkUrl: linkUrl || null,
+      title: input.title,
+      description: input.description || null,
+      linkUrl: input.linkUrl || null,
+      fileId,
+      fileName,
     });
 
     await logActivity(
-      `Menambah materi "${title}" di ${kelas.subject} ${kelas.className}`,
+      `Menambah materi "${input.title}" di ${kelas.subject} ${kelas.className}`,
       actor
     );
 
-    revalidatePath(`/guru/kelas/${kelas.id}/materi`);
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
 
     return { ok: true, message: "Materi berhasil ditambahkan." };
   } catch (error) {
     console.error("Create material error:", error);
+    await deleteFile(fileId);
     return { ok: false, message: "Gagal menyimpan materi." };
   }
+}
+
+export async function updateMaterial(
+  tcId: string,
+  materialId: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const { kelas, actor } = await authorize(tcId);
+
+  if (!kelas) return notFound;
+
+  const input = readMaterial(formData);
+
+  if (typeof input === "string") return { ok: false, message: input };
+
+  const [existing] = await db
+    .select()
+    .from(materials)
+    .where(
+      and(
+        eq(materials.id, toId(materialId)),
+        eq(materials.teachingClassId, kelas.id)
+      )
+    )
+    .limit(1);
+
+  if (!existing) return { ok: false, message: "Materi tidak ditemukan." };
+
+  let fileId = existing.fileId;
+  let fileName = existing.fileName;
+  let oldFileToDelete: number | null = null;
+
+  const newFile = pickFile(formData, "file");
+
+  if (newFile) {
+    const uploaded = await uploadFile(newFile);
+
+    if (!uploaded.ok) return { ok: false, message: uploaded.message };
+
+    oldFileToDelete = existing.fileId;
+    fileId = uploaded.id;
+    fileName = uploaded.name;
+  } else if (formData.get("removeFile") === "on" && existing.fileId) {
+    oldFileToDelete = existing.fileId;
+    fileId = null;
+    fileName = null;
+  }
+
+  try {
+    await db
+      .update(materials)
+      .set({
+        title: input.title,
+        description: input.description || null,
+        linkUrl: input.linkUrl || null,
+        fileId,
+        fileName,
+      })
+      .where(eq(materials.id, existing.id));
+
+    await deleteFile(oldFileToDelete);
+
+    await logActivity(
+      `Mengubah materi "${input.title}" di ${kelas.subject} ${kelas.className}`,
+      actor
+    );
+
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
+  } catch (error) {
+    console.error("Update material error:", error);
+
+    if (newFile) await deleteFile(fileId);
+
+    return { ok: false, message: "Gagal menyimpan perubahan." };
+  }
+
+  redirect(`/guru/kelas/${kelas.id}/materi`);
 }
 
 export async function deleteMaterial(
@@ -207,18 +349,96 @@ export async function deleteMaterial(
           eq(materials.teachingClassId, kelas.id)
         )
       )
-      .returning({ title: materials.title });
+      .returning({ title: materials.title, fileId: materials.fileId });
 
     if (deleted) {
+      await deleteFile(deleted.fileId);
+
       await logActivity(
         `Menghapus materi "${deleted.title}" di ${kelas.subject} ${kelas.className}`,
         actor
       );
     }
 
-    revalidatePath(`/guru/kelas/${kelas.id}/materi`);
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
   } catch (error) {
     console.error("Delete material error:", error);
+  }
+}
+
+// ---------- Pengumuman ----------
+
+export async function createAnnouncement(
+  tcId: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const { kelas, actor } = await authorize(tcId);
+
+  if (!kelas) return notFound;
+
+  const title = text(formData, "title");
+  const body = text(formData, "body");
+
+  if (!title || !body) {
+    return { ok: false, message: "Judul dan isi pengumuman wajib diisi." };
+  }
+
+  if (title.length > 200) {
+    return { ok: false, message: "Judul maksimal 200 karakter." };
+  }
+
+  try {
+    await db
+      .insert(announcements)
+      .values({ teachingClassId: kelas.id, title, body });
+
+    await logActivity(
+      `Membuat pengumuman "${title}" di ${kelas.subject} ${kelas.className}`,
+      actor
+    );
+
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
+
+    return { ok: true, message: "Pengumuman dikirim ke murid." };
+  } catch (error) {
+    console.error("Create announcement error:", error);
+    return { ok: false, message: "Gagal menyimpan pengumuman." };
+  }
+}
+
+export async function deleteAnnouncement(
+  tcId: string,
+  announcementId: string
+): Promise<void> {
+  const { kelas, actor } = await authorize(tcId);
+
+  if (!kelas) return;
+
+  try {
+    const [deleted] = await db
+      .delete(announcements)
+      .where(
+        and(
+          eq(announcements.id, toId(announcementId)),
+          eq(announcements.teachingClassId, kelas.id)
+        )
+      )
+      .returning({ title: announcements.title });
+
+    if (deleted) {
+      await logActivity(
+        `Menghapus pengumuman "${deleted.title}" di ${kelas.subject} ${kelas.className}`,
+        actor
+      );
+    }
+
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
+  } catch (error) {
+    console.error("Delete announcement error:", error);
   }
 }
 
@@ -281,14 +501,91 @@ export async function createAssessment(
       actor
     );
 
-    revalidatePath(`/guru/kelas/${kelas.id}/tugas`);
-    revalidatePath(`/guru/kelas/${kelas.id}/penilaian`);
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
 
     return { ok: true, message: `${title} berhasil dibuat.` };
   } catch (error) {
     console.error("Create assessment error:", error);
     return { ok: false, message: "Gagal menyimpan." };
   }
+}
+
+export async function updateAssessment(
+  tcId: string,
+  assessmentId: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const { kelas, actor } = await authorize(tcId);
+
+  if (!kelas) return notFound;
+
+  const existing = await getOwnedAssessment(kelas.id, toId(assessmentId));
+
+  if (!existing) return { ok: false, message: "Penilaian tidak ditemukan." };
+
+  const title = text(formData, "title");
+  const instructions = text(formData, "instructions");
+  const dueRaw = text(formData, "dueAt");
+  const maxScore = Number(text(formData, "maxScore") || "100");
+
+  if (!title) return { ok: false, message: "Judul wajib diisi." };
+  if (title.length > 200) {
+    return { ok: false, message: "Judul maksimal 200 karakter." };
+  }
+  if (!Number.isInteger(maxScore) || maxScore < 1 || maxScore > 1000) {
+    return { ok: false, message: "Nilai maksimal harus 1 sampai 1000." };
+  }
+
+  const dueAt = dueRaw ? parseJakartaLocal(dueRaw) : null;
+
+  if (dueRaw && !dueAt) {
+    return { ok: false, message: "Format tenggat tidak valid." };
+  }
+
+  // Nilai maksimal tidak boleh lebih kecil dari nilai yang sudah diberikan.
+  const [tooHigh] = await db
+    .select({ score: submissions.score })
+    .from(submissions)
+    .where(
+      and(
+        eq(submissions.assessmentId, existing.id),
+        gt(submissions.score, maxScore)
+      )
+    )
+    .limit(1);
+
+  if (tooHigh) {
+    return {
+      ok: false,
+      message: `Sudah ada nilai ${tooHigh.score} yang melebihi ${maxScore}. Ubah nilainya dulu atau naikkan nilai maksimal.`,
+    };
+  }
+
+  try {
+    await db
+      .update(assessments)
+      .set({ title, instructions: instructions || null, dueAt, maxScore })
+      .where(eq(assessments.id, existing.id));
+
+    await logActivity(
+      `Mengubah "${title}" di ${kelas.subject} ${kelas.className}`,
+      actor
+    );
+
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
+  } catch (error) {
+    console.error("Update assessment error:", error);
+    return { ok: false, message: "Gagal menyimpan perubahan." };
+  }
+
+  redirect(
+    existing.kind === "tugas"
+      ? `/guru/kelas/${kelas.id}/tugas`
+      : `/guru/kelas/${kelas.id}/penilaian`
+  );
 }
 
 export async function deleteAssessment(
@@ -300,27 +597,120 @@ export async function deleteAssessment(
   if (!kelas) return;
 
   try {
+    const id = toId(assessmentId);
+
+    const files = await db
+      .select({ id: submissions.fileId })
+      .from(submissions)
+      .innerJoin(assessments, eq(submissions.assessmentId, assessments.id))
+      .where(
+        and(
+          eq(submissions.assessmentId, id),
+          eq(assessments.teachingClassId, kelas.id),
+          isNotNull(submissions.fileId)
+        )
+      );
+
     const [deleted] = await db
       .delete(assessments)
       .where(
-        and(
-          eq(assessments.id, toId(assessmentId)),
-          eq(assessments.teachingClassId, kelas.id)
-        )
+        and(eq(assessments.id, id), eq(assessments.teachingClassId, kelas.id))
       )
       .returning({ title: assessments.title });
 
     if (deleted) {
+      await Promise.all(files.map((f) => deleteFile(f.id)));
+
       await logActivity(
         `Menghapus "${deleted.title}" di ${kelas.subject} ${kelas.className}`,
         actor
       );
     }
 
-    revalidatePath(`/guru/kelas/${kelas.id}/tugas`);
-    revalidatePath(`/guru/kelas/${kelas.id}/penilaian`);
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
   } catch (error) {
     console.error("Delete assessment error:", error);
+  }
+}
+
+const WEIGHT_KINDS = ["tugas", "kuis", "uts", "uas", "praktik"] as const;
+
+export async function saveWeights(
+  tcId: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const { kelas, actor } = await authorize(tcId);
+
+  if (!kelas) return notFound;
+
+  const values: { kind: (typeof WEIGHT_KINDS)[number]; weight: number }[] = [];
+  let total = 0;
+
+  for (const kind of WEIGHT_KINDS) {
+    const raw = text(formData, `weight-${kind}`);
+    const weight = raw === "" ? 0 : Number(raw);
+
+    if (!Number.isInteger(weight) || weight < 0 || weight > 100) {
+      return { ok: false, message: "Bobot harus bilangan bulat 0 sampai 100." };
+    }
+
+    total += weight;
+
+    if (weight > 0) values.push({ kind, weight });
+  }
+
+  if (total !== 100) {
+    return {
+      ok: false,
+      message: `Total bobot harus 100 (sekarang ${total}).`,
+    };
+  }
+
+  try {
+    await db
+      .delete(gradeWeights)
+      .where(eq(gradeWeights.teachingClassId, kelas.id));
+
+    await db
+      .insert(gradeWeights)
+      .values(values.map((v) => ({ teachingClassId: kelas.id, ...v })));
+
+    await logActivity(
+      `Mengatur bobot nilai ${kelas.subject} ${kelas.className}`,
+      actor
+    );
+
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
+
+    return { ok: true, message: "Bobot nilai tersimpan." };
+  } catch (error) {
+    console.error("Save weights error:", error);
+    return { ok: false, message: "Gagal menyimpan bobot." };
+  }
+}
+
+export async function clearWeights(tcId: string): Promise<void> {
+  const { kelas, actor } = await authorize(tcId);
+
+  if (!kelas) return;
+
+  try {
+    await db
+      .delete(gradeWeights)
+      .where(eq(gradeWeights.teachingClassId, kelas.id));
+
+    await logActivity(
+      `Menghapus bobot nilai ${kelas.subject} ${kelas.className}`,
+      actor
+    );
+
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
+  } catch (error) {
+    console.error("Clear weights error:", error);
   }
 }
 
@@ -416,8 +806,8 @@ export async function saveScores(
       actor
     );
 
-    revalidatePath(`/guru/kelas/${kelas.id}/penilaian`, "layout");
-    revalidatePath(`/guru/kelas/${kelas.id}/tugas`);
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
 
     return { ok: true, message: `Nilai tersimpan (${scored} murid dinilai).` };
   } catch (error) {
@@ -543,7 +933,8 @@ export async function saveAttendance(
       actor
     );
 
-    revalidatePath(`/guru/kelas/${kelas.id}/kehadiran`, "layout");
+    revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
+    revalidateStudents();
 
     return { ok: true, message: "Kehadiran tersimpan." };
   } catch (error) {

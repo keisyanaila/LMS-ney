@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTeacher } from "@/lib/auth";
 import {
-  countScoredByAssessment,
   getOwnedTeachingClass,
+  getSubmissionCounts,
   listAssessments,
   listClassStudents,
 } from "@/lib/guru-data";
@@ -29,11 +29,16 @@ export default async function TugasPage({
     listClassStudents(kelas.classId),
   ]);
 
-  const scored = await countScoredByAssessment(items.map((item) => item.id));
+  const counts = await getSubmissionCounts(items.map((item) => item.id));
   const now = new Date();
 
   return (
     <>
+      <p className="mb-4 text-sm text-black/60">
+        Buat tugas, murid mengumpulkan jawaban (teks, link, atau file) dari
+        halaman mereka, lalu Anda memberi nilai di tombol &quot;Nilai&quot;.
+      </p>
+
       <Card title="Buat tugas" className="mb-6">
         <AssessmentForm tcId={kelas.id} mode="tugas" />
       </Card>
@@ -49,6 +54,7 @@ export default async function TugasPage({
                   <th className="px-3 py-3 font-bold">Tugas</th>
                   <th className="px-3 py-3 font-bold">Tenggat</th>
                   <th className="px-3 py-3 font-bold">Nilai maks</th>
+                  <th className="px-3 py-3 font-bold">Terkumpul</th>
                   <th className="px-3 py-3 font-bold">Dinilai</th>
                   <th className="px-3 py-3" />
                 </tr>
@@ -66,7 +72,10 @@ export default async function TugasPage({
                       </td>
                       <td className="px-3 py-3">{item.maxScore}</td>
                       <td className="px-3 py-3">
-                        {scored.get(item.id) ?? 0}/{studentList.length}
+                        {counts.get(item.id)?.submitted ?? 0}/{studentList.length}
+                      </td>
+                      <td className="px-3 py-3">
+                        {counts.get(item.id)?.graded ?? 0}/{studentList.length}
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center justify-end gap-4">
@@ -74,7 +83,13 @@ export default async function TugasPage({
                             href={`/guru/kelas/${kelas.id}/penilaian/${item.id}`}
                             className="text-xs font-semibold text-blue-700 hover:underline"
                           >
-                            Beri nilai
+                            Nilai
+                          </Link>
+                          <Link
+                            href={`/guru/kelas/${kelas.id}/penilaian/${item.id}/edit`}
+                            className="text-xs font-semibold text-blue-700 hover:underline"
+                          >
+                            Edit
                           </Link>
                           <DeleteButton
                             action={deleteAssessment.bind(

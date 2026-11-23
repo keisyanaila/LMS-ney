@@ -30,6 +30,18 @@ export default async function KehadiranPage({
 
   return (
     <>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-black/60">
+          Buat pertemuan, tandai kehadiran murid, lalu unduh rekapnya ke Excel.
+        </p>
+        <a
+          href={`/api/guru/kelas/${kelas.id}/export?jenis=absensi`}
+          className="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
+        >
+          Unduh Excel
+        </a>
+      </div>
+
       <Card title="Buat pertemuan baru" className="mb-6">
         <AttendanceSessionForm tcId={kelas.id} today={todayJakarta()} />
       </Card>

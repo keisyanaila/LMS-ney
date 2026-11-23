@@ -38,6 +38,8 @@ export const users = pgTable(
     passwordHash: text("password_hash").notNull(),
     role: userRoleEnum("role").notNull(),
     status: userStatusEnum("status").default("active").notNull(),
+    // true bila password masih sementara dari admin; wajib diganti saat login.
+    mustChangePassword: boolean("must_change_password").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -178,6 +180,10 @@ export const materials = pgTable("materials", {
   title: varchar("title", { length: 200 }).notNull(),
   description: text("description"),
   linkUrl: text("link_url"),
+  fileId: integer("file_id").references(() => files.id, {
+    onDelete: "set null",
+  }),
+  fileName: varchar("file_name", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -208,6 +214,10 @@ export const submissions = pgTable(
       .references(() => students.id, { onDelete: "cascade" }),
     answer: text("answer"),
     linkUrl: text("link_url"),
+    fileId: integer("file_id").references(() => files.id, {
+      onDelete: "set null",
+    }),
+    fileName: varchar("file_name", { length: 255 }),
     submittedAt: timestamp("submitted_at"),
     score: numeric("score", { precision: 5, scale: 2, mode: "number" }),
     feedback: text("feedback"),
@@ -262,3 +272,44 @@ export const attendanceRecords = pgTable(
     ),
   ]
 );
+
+// Pengumuman kelas dari guru
+export const announcements = pgTable("announcements", {
+  id: serial("id").primaryKey(),
+  teachingClassId: integer("teaching_class_id")
+    .notNull()
+    .references(() => teachingClasses.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 200 }).notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Bobot nilai akhir per jenis penilaian (total 100) untuk satu kelas ajar
+export const gradeWeights = pgTable(
+  "grade_weights",
+  {
+    id: serial("id").primaryKey(),
+    teachingClassId: integer("teaching_class_id")
+      .notNull()
+      .references(() => teachingClasses.id, { onDelete: "cascade" }),
+    kind: assessmentKindEnum("kind").notNull(),
+    weight: integer("weight").notNull(),
+  },
+  (table) => [
+    uniqueIndex("grade_weights_class_kind_unique").on(
+      table.teachingClassId,
+      table.kind
+    ),
+  ]
+);
+
+// File unggahan (materi guru dan tugas siswa), disimpan di database.
+// Isi file berupa base64 agar kompatibel dengan driver Neon HTTP.
+export const files = pgTable("files", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  mimeType: varchar("mime_type", { length: 150 }).notNull(),
+  size: integer("size").notNull(),
+  data: text("data").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

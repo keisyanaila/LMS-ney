@@ -59,6 +59,10 @@ export default async function BeriNilaiPage({
       fullName: student.fullName,
       studentNumber: student.studentNumber,
       submissionLabel,
+      answer: submission?.answer ?? null,
+      linkUrl: submission?.linkUrl ?? null,
+      fileId: submission?.fileId ?? null,
+      fileName: submission?.fileName ?? null,
       score: submission?.score ?? null,
       feedback: submission?.feedback ?? null,
     };
@@ -79,9 +83,17 @@ export default async function BeriNilaiPage({
       </Link>
 
       <Card className="mb-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-bold">{assessment.title}</h2>
-          <Badge>{KIND_LABELS[assessment.kind]}</Badge>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-bold">{assessment.title}</h2>
+            <Badge>{KIND_LABELS[assessment.kind]}</Badge>
+          </div>
+          <Link
+            href={`/guru/kelas/${kelas.id}/penilaian/${assessment.id}/edit`}
+            className="text-sm font-semibold text-blue-700 hover:underline"
+          >
+            Edit
+          </Link>
         </div>
         <p className="mt-1 text-sm text-black/50">
           Tenggat: {formatDateTime(assessment.dueAt)} · Nilai maksimal{" "}

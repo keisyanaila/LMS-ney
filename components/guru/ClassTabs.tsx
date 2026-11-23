@@ -9,6 +9,7 @@ export default function ClassTabs({ id }: { id: number }) {
 
   const tabs = [
     { href: base, label: "Ringkasan" },
+    { href: `${base}/pengumuman`, label: "Pengumuman" },
     { href: `${base}/materi`, label: "Materi" },
     { href: `${base}/tugas`, label: "Tugas" },
     { href: `${base}/penilaian`, label: "Penilaian" },

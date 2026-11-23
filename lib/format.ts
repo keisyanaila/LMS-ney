@@ -39,3 +39,25 @@ export function formatScore(value: number | null | undefined) {
   if (value === null || value === undefined) return "—";
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
+
+/** Date menjadi nilai input datetime-local (waktu WIB), mis. 2026-11-23T14:30. */
+export function toDatetimeLocal(value: Date | null | undefined) {
+  if (!value) return "";
+
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+    .format(value)
+    .replace(" ", "T");
+}
+
+export function formatFileSize(bytes: number) {
+  return bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}

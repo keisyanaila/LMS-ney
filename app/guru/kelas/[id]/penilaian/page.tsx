@@ -6,11 +6,12 @@ import {
   getOwnedTeachingClass,
   KIND_LABELS,
 } from "@/lib/guru-data";
+import { clearWeights } from "../../../actions";
 import { formatScore } from "@/lib/format";
 import { Badge, Card } from "@/components/admin/ui";
 import DeleteButton from "@/components/admin/DeleteButton";
 import { deleteAssessment } from "../../../actions";
-import { AssessmentForm } from "../../../forms";
+import { AssessmentForm, WeightsForm } from "../../../forms";
 
 export default async function PenilaianPage({
   params,
@@ -23,11 +24,27 @@ export default async function PenilaianPage({
 
   if (!kelas) notFound();
 
-  const { items, rows } = await getGradeMatrix(kelas.id, kelas.classId);
+  const { items, rows, weights } = await getGradeMatrix(
+    kelas.id,
+    kelas.classId
+  );
   const others = items.filter((item) => item.kind !== "tugas");
 
   return (
     <>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-black/60">
+          Lihat nilai semua murid, atur bobot nilai akhir, dan unduh rekap ke
+          Excel.
+        </p>
+        <a
+          href={`/api/guru/kelas/${kelas.id}/export?jenis=nilai`}
+          className="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"
+        >
+          Unduh Excel
+        </a>
+      </div>
+
       <Card title="Rekap nilai" className="mb-6">
         {items.length === 0 ? (
           <p className="text-sm text-black/50">
@@ -60,7 +77,7 @@ export default async function PenilaianPage({
                       </span>
                     </th>
                   ))}
-                  <th className="px-3 py-3 font-bold">Rata-rata</th>
+                  <th className="px-3 py-3 font-bold">Nilai akhir</th>
                 </tr>
               </thead>
               <tbody>
@@ -75,7 +92,7 @@ export default async function PenilaianPage({
                       </td>
                     ))}
                     <td className="px-3 py-2 font-bold">
-                      {average === null ? "—" : `${average.toFixed(1)}%`}
+                      {average === null ? "—" : average.toFixed(1)}
                     </td>
                   </tr>
                 ))}
@@ -84,9 +101,31 @@ export default async function PenilaianPage({
           </div>
         )}
         <p className="mt-3 text-xs text-black/50">
-          Rata-rata dihitung dari persentase nilai terhadap nilai maksimal,
-          semua item bobotnya sama. Item yang belum dinilai tidak ikut dihitung.
+          {weights
+            ? "Nilai akhir (0-100) dihitung dari rata-rata tiap jenis penilaian dikalikan bobotnya. Jenis yang belum punya nilai tidak ikut dihitung."
+            : "Belum ada bobot: nilai akhir (0-100) adalah rata-rata persentase semua item yang sudah dinilai. Atur bobot di bawah jika ingin Tugas, UTS, dan UAS berbeda porsi."}
         </p>
+      </Card>
+
+      <Card title="Bobot nilai akhir" className="mb-6">
+        <p className="mb-4 text-sm text-black/60">
+          Isi porsi tiap jenis penilaian. Total harus 100. Contoh: Tugas 30,
+          UTS 30, UAS 40.
+        </p>
+        <WeightsForm tcId={kelas.id} current={weights} />
+        {weights && (
+          <form
+            action={clearWeights.bind(null, String(kelas.id))}
+            className="mt-3"
+          >
+            <button
+              type="submit"
+              className="text-xs font-semibold text-black/50 hover:text-red-600"
+            >
+              Hapus bobot (kembali ke rata-rata biasa)
+            </button>
+          </form>
+        )}
       </Card>
 
       <Card title="Tambah penilaian lain (kuis, UTS, UAS, praktik)" className="mb-6">
@@ -111,6 +150,12 @@ export default async function PenilaianPage({
                     className="text-xs font-semibold text-blue-700 hover:underline"
                   >
                     Isi nilai
+                  </Link>
+                  <Link
+                    href={`/guru/kelas/${kelas.id}/penilaian/${item.id}/edit`}
+                    className="text-xs font-semibold text-blue-700 hover:underline"
+                  >
+                    Edit
                   </Link>
                   <DeleteButton
                     action={deleteAssessment.bind(

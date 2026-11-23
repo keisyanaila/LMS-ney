@@ -335,6 +335,8 @@ export async function createAccounts(
         passwordHash: hashes[index],
         role,
         status: "active" as const,
+        // Password acak dari admin hanya sementara.
+        mustChangePassword: role === "murid" || role === "guru",
       }))
     )
     .returning({ id: users.id, username: users.username });

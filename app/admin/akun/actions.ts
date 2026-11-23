@@ -319,7 +319,7 @@ export async function resetAccountPassword(
 
     const [updated] = await db
       .update(users)
-      .set({ passwordHash, updatedAt: new Date() })
+      .set({ passwordHash, mustChangePassword: true, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning({ fullName: users.fullName, username: users.username });
 

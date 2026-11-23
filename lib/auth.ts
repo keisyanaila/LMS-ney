@@ -2,8 +2,9 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users, teachers } from "@/lib/schema";
+import { users, teachers, students } from "@/lib/schema";
 import { readSession } from "@/lib/session";
+import { CHANGE_PASSWORD_PATH } from "@/lib/roles";
 
 /** Pengguna yang sedang login (null jika belum login atau akun nonaktif). */
 export const getCurrentUser = cache(async () => {
@@ -17,6 +18,7 @@ export const getCurrentUser = cache(async () => {
       fullName: users.fullName,
       role: users.role,
       status: users.status,
+      mustChangePassword: users.mustChangePassword,
     })
     .from(users)
     .where(eq(users.id, session.userId))
@@ -27,6 +29,15 @@ export const getCurrentUser = cache(async () => {
   return user;
 });
 
+/** Halaman ganti password: cukup login, peran apa pun. */
+export async function requireUser() {
+  const user = await getCurrentUser();
+
+  if (!user) redirect("/");
+
+  return user;
+}
+
 /**
  * Wajib login sebagai guru. Dipanggil di setiap halaman dan server action
  * guru, karena proxy.ts hanya pemeriksaan awal dan bukan otorisasi.
@@ -35,6 +46,7 @@ export const requireTeacher = cache(async () => {
   const user = await getCurrentUser();
 
   if (!user || user.role !== "guru") redirect("/");
+  if (user.mustChangePassword) redirect(CHANGE_PASSWORD_PATH);
 
   const [teacher] = await db
     .select()
@@ -45,4 +57,22 @@ export const requireTeacher = cache(async () => {
   if (!teacher) redirect("/");
 
   return { user, teacher };
+});
+
+/** Wajib login sebagai siswa dan sudah mengganti password sementara. */
+export const requireStudent = cache(async () => {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== "murid") redirect("/");
+  if (user.mustChangePassword) redirect(CHANGE_PASSWORD_PATH);
+
+  const [student] = await db
+    .select()
+    .from(students)
+    .where(eq(students.userId, user.id))
+    .limit(1);
+
+  if (!student) redirect("/");
+
+  return { user, student };
 });

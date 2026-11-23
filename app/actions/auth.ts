@@ -6,6 +6,7 @@ import { compare } from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/schema";
 import { createSession, deleteSession } from "@/lib/session";
+import { CHANGE_PASSWORD_PATH, HOME_BY_ROLE } from "@/lib/roles";
 
 export type LoginState = { message: string } | null;
 
@@ -13,10 +14,6 @@ export type LoginState = { message: string } | null;
 const DUMMY_HASH =
   "$2b$10$CwTycUXWue0Thq9StjUM0uJ8.4B8sQ1eN6Zp3H8vYk5d5Qe1iS3yK";
 
-const HOME_BY_ROLE: Record<string, string | undefined> = {
-  guru: "/guru",
-  admin: "/admin",
-};
 
 export async function login(
   _prev: LoginState,
@@ -53,7 +50,8 @@ export async function login(
 
   await createSession({ userId: user.id, role: user.role });
 
-  redirect(home);
+  // Password sementara dari admin wajib diganti sebelum memakai aplikasi.
+  redirect(user.mustChangePassword ? CHANGE_PASSWORD_PATH : home);
 }
 
 export async function logout() {
