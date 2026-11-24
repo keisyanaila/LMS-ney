@@ -19,7 +19,6 @@ import { requireTeacher } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
 import {
   ATTENDANCE_STATUSES,
-  ASSESSMENT_KINDS,
   getOwnedAssessment,
   getOwnedAttendanceSession,
   getOwnedTeachingClass,
@@ -28,6 +27,8 @@ import {
   type AttendanceStatus,
 } from "@/lib/guru-data";
 import { parseJakartaLocal } from "@/lib/format";
+import { isOnlineKind, sectionOfKind } from "@/lib/online";
+import { countAttempts } from "@/lib/quiz-data";
 import { deleteFile, pickFile, uploadFile } from "@/lib/storage";
 
 export type FormState = {
@@ -444,10 +445,56 @@ export async function deleteAnnouncement(
 
 // ---------- Tugas dan penilaian ----------
 
-/** mode "tugas": selalu tugas. mode "lainnya": kuis, UTS, UAS, atau praktik. */
+type OnlineFields = {
+  opensAt: Date | null;
+  durationMinutes: number | null;
+  showResult: boolean;
+};
+
+/** Pengaturan khusus kuis/ujian online; string = pesan error. */
+function readOnlineFields(
+  formData: FormData,
+  dueAt: Date | null
+): OnlineFields | string {
+  const opensRaw = text(formData, "opensAt");
+  const durationRaw = text(formData, "durationMinutes");
+
+  const opensAt = opensRaw ? parseJakartaLocal(opensRaw) : null;
+
+  if (opensRaw && !opensAt) return "Format waktu dibuka tidak valid.";
+
+  let durationMinutes: number | null = null;
+
+  if (durationRaw) {
+    durationMinutes = Number(durationRaw);
+
+    if (
+      !Number.isInteger(durationMinutes) ||
+      durationMinutes < 1 ||
+      durationMinutes > 600
+    ) {
+      return "Durasi harus 1 sampai 600 menit.";
+    }
+  }
+
+  if (opensAt && dueAt && opensAt >= dueAt) {
+    return "Waktu dibuka harus sebelum waktu ditutup.";
+  }
+
+  return {
+    opensAt,
+    durationMinutes,
+    showResult: formData.get("showResult") === "on",
+  };
+}
+
+/**
+ * mode "tugas" = tugas; "kuis" = kuis online; "ujian" = UTS/UAS online;
+ * "lainnya" = penilaian praktik (nilai diisi guru).
+ */
 export async function createAssessment(
   tcId: string,
-  mode: "tugas" | "lainnya",
+  mode: "tugas" | "kuis" | "ujian" | "lainnya",
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
@@ -460,16 +507,22 @@ export async function createAssessment(
   const dueRaw = text(formData, "dueAt");
   const maxScore = Number(text(formData, "maxScore") || "100");
 
-  let kind: AssessmentKind = "tugas";
+  let kind: AssessmentKind;
 
-  if (mode === "lainnya") {
-    const picked = text(formData, "kind") as AssessmentKind;
+  if (mode === "ujian") {
+    const picked = text(formData, "kind");
 
-    if (!ASSESSMENT_KINDS.includes(picked) || picked === "tugas") {
-      return { ok: false, message: "Jenis penilaian tidak valid." };
+    if (picked !== "uts" && picked !== "uas") {
+      return { ok: false, message: "Pilih UTS atau UAS." };
     }
 
     kind = picked;
+  } else if (mode === "kuis") {
+    kind = "kuis";
+  } else if (mode === "lainnya") {
+    kind = "praktik";
+  } else {
+    kind = "tugas";
   }
 
   if (!title) return { ok: false, message: "Judul wajib diisi." };
@@ -486,6 +539,10 @@ export async function createAssessment(
     return { ok: false, message: "Format tenggat tidak valid." };
   }
 
+  const online = isOnlineKind(kind) ? readOnlineFields(formData, dueAt) : null;
+
+  if (typeof online === "string") return { ok: false, message: online };
+
   try {
     await db.insert(assessments).values({
       teachingClassId: kelas.id,
@@ -494,6 +551,9 @@ export async function createAssessment(
       instructions: instructions || null,
       dueAt,
       maxScore,
+      ...(online ?? {}),
+      // Kuis/ujian dibuat sebagai draf sampai soalnya siap dan diterbitkan.
+      published: online ? false : true,
     });
 
     await logActivity(
@@ -504,7 +564,12 @@ export async function createAssessment(
     revalidatePath(`/guru/kelas/${kelas.id}`, "layout");
     revalidateStudents();
 
-    return { ok: true, message: `${title} berhasil dibuat.` };
+    return {
+      ok: true,
+      message: online
+        ? `${title} dibuat sebagai draf. Tambahkan soal lalu terbitkan.`
+        : `${title} berhasil dibuat.`,
+    };
   } catch (error) {
     console.error("Create assessment error:", error);
     return { ok: false, message: "Gagal menyimpan." };
@@ -544,6 +609,25 @@ export async function updateAssessment(
     return { ok: false, message: "Format tenggat tidak valid." };
   }
 
+  const online = isOnlineKind(existing.kind)
+    ? readOnlineFields(formData, dueAt)
+    : null;
+
+  if (typeof online === "string") return { ok: false, message: online };
+
+  // Nilai kuis/ujian sudah diskalakan ke nilai maksimal, jadi dikunci setelah ada yang mengerjakan.
+  if (
+    online &&
+    maxScore !== existing.maxScore &&
+    (await countAttempts(existing.id)) > 0
+  ) {
+    return {
+      ok: false,
+      message:
+        "Nilai maksimal tidak bisa diubah karena sudah ada siswa yang mengerjakan.",
+    };
+  }
+
   // Nilai maksimal tidak boleh lebih kecil dari nilai yang sudah diberikan.
   const [tooHigh] = await db
     .select({ score: submissions.score })
@@ -566,7 +650,13 @@ export async function updateAssessment(
   try {
     await db
       .update(assessments)
-      .set({ title, instructions: instructions || null, dueAt, maxScore })
+      .set({
+        title,
+        instructions: instructions || null,
+        dueAt,
+        maxScore,
+        ...(online ?? {}),
+      })
       .where(eq(assessments.id, existing.id));
 
     await logActivity(
@@ -581,10 +671,14 @@ export async function updateAssessment(
     return { ok: false, message: "Gagal menyimpan perubahan." };
   }
 
+  const section = sectionOfKind(existing.kind);
+
   redirect(
-    existing.kind === "tugas"
-      ? `/guru/kelas/${kelas.id}/tugas`
-      : `/guru/kelas/${kelas.id}/penilaian`
+    section
+      ? `/guru/kelas/${kelas.id}/${section}/${existing.id}`
+      : existing.kind === "tugas"
+        ? `/guru/kelas/${kelas.id}/tugas`
+        : `/guru/kelas/${kelas.id}/penilaian`
   );
 }
 

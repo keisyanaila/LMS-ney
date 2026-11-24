@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireTeacher } from "@/lib/auth";
 import { getTeacherDashboard } from "@/lib/guru-data";
 import { formatDateTime } from "@/lib/format";
+import { itemPath } from "@/lib/online";
 import { Badge, Card } from "@/components/admin/ui";
 
 function Stat({ label, value }: { label: string; value: number }) {
@@ -74,7 +75,7 @@ export default async function GuruDashboardPage() {
               {data.upcoming.map((item) => (
                 <li key={item.id}>
                   <Link
-                    href={`/guru/kelas/${item.teachingClassId}/penilaian/${item.id}`}
+                    href={itemPath("guru", item.teachingClassId, item.kind, item.id)}
                     className="block py-3 hover:text-blue-700"
                   >
                     <span className="block font-semibold">{item.title}</span>

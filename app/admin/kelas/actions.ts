@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { count, eq } from "drizzle-orm";
@@ -24,6 +25,7 @@ export async function createMajor(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await requireAdmin();
   const code = text(formData, "code").toUpperCase();
   const name = text(formData, "name");
 
@@ -56,6 +58,7 @@ export async function createMajor(
 }
 
 export async function deleteMajor(id: string): Promise<void> {
+  await requireAdmin();
   const majorId = Number(id);
 
   if (!Number.isInteger(majorId) || majorId <= 0) return;
@@ -143,6 +146,7 @@ export async function createClass(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await requireAdmin();
   try {
     const parsed = await readClassForm(formData);
 
@@ -173,6 +177,7 @@ export async function updateClass(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await requireAdmin();
   const classId = Number(id);
 
   if (!Number.isInteger(classId) || classId <= 0) {
@@ -227,6 +232,7 @@ export async function deleteClass(
   id: string,
   goBack = false
 ): Promise<void> {
+  await requireAdmin();
   const classId = Number(id);
 
   if (!Number.isInteger(classId) || classId <= 0) return;

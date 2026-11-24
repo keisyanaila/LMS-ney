@@ -10,6 +10,7 @@ import {
   integer,
   numeric,
   date,
+  jsonb,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -198,6 +199,13 @@ export const assessments = pgTable("assessments", {
   instructions: text("instructions"),
   dueAt: timestamp("due_at"),
   maxScore: integer("max_score").default(100).notNull(),
+  // Khusus kuis/ujian online. dueAt dipakai sebagai batas penutupan.
+  opensAt: timestamp("opens_at"),
+  durationMinutes: integer("duration_minutes"),
+  // false = nilai dan pembahasan disembunyikan dari siswa.
+  showResult: boolean("show_result").default(false).notNull(),
+  // false = draf, belum terlihat oleh siswa.
+  published: boolean("published").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -313,3 +321,74 @@ export const files = pgTable("files", {
   data: text("data").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Kuis dan ujian online
+// ---------------------------------------------------------------------------
+
+export const questionTypeEnum = pgEnum("question_type", [
+  "pilihan_ganda",
+  "esai",
+]);
+
+export const questions = pgTable("questions", {
+  id: serial("id").primaryKey(),
+  assessmentId: integer("assessment_id")
+    .notNull()
+    .references(() => assessments.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+  type: questionTypeEnum("type").notNull(),
+  text: text("text").notNull(),
+  options: jsonb("options").$type<string[]>(),
+  correctIndex: integer("correct_index"),
+  points: integer("points").default(1).notNull(),
+});
+
+// Satu percobaan per murid per kuis/ujian.
+export const attempts = pgTable(
+  "attempts",
+  {
+    id: serial("id").primaryKey(),
+    assessmentId: integer("assessment_id")
+      .notNull()
+      .references(() => assessments.id, { onDelete: "cascade" }),
+    studentId: integer("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    startedAt: timestamp("started_at").defaultNow().notNull(),
+    submittedAt: timestamp("submitted_at"),
+  },
+  (table) => [
+    uniqueIndex("attempts_assessment_student_unique").on(
+      table.assessmentId,
+      table.studentId
+    ),
+  ]
+);
+
+export const attemptAnswers = pgTable(
+  "attempt_answers",
+  {
+    id: serial("id").primaryKey(),
+    attemptId: integer("attempt_id")
+      .notNull()
+      .references(() => attempts.id, { onDelete: "cascade" }),
+    questionId: integer("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    selectedIndex: integer("selected_index"),
+    essayText: text("essay_text"),
+    // null = belum dinilai (esai menunggu guru).
+    awardedPoints: numeric("awarded_points", {
+      precision: 6,
+      scale: 2,
+      mode: "number",
+    }),
+  },
+  (table) => [
+    uniqueIndex("attempt_answers_attempt_question_unique").on(
+      table.attemptId,
+      table.questionId
+    ),
+  ]
+);

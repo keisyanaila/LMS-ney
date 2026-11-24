@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { hash } from "bcryptjs";
 import { and, count, eq, ne, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -66,6 +67,7 @@ export async function createAccountAction(
   _prev: CreateState,
   formData: FormData
 ): Promise<CreateState> {
+  await requireAdmin();
   const role = text(formData, "role");
 
   if (!isAccountRole(role)) {
@@ -106,6 +108,7 @@ export async function updateAccount(
   _prev: UpdateState,
   formData: FormData
 ): Promise<UpdateState> {
+  await requireAdmin();
   const id = parseId(formData);
 
   if (!id) return { ok: false, message: "ID akun tidak valid." };
@@ -239,6 +242,7 @@ async function isLastActiveAdmin(id: number) {
 export async function toggleAccountStatus(
   formData: FormData
 ): Promise<SimpleResult> {
+  await requireAdmin();
   const id = parseId(formData);
   const status = text(formData, "status");
 
@@ -279,6 +283,7 @@ export async function toggleAccountStatus(
 }
 
 export async function deleteAccount(formData: FormData): Promise<SimpleResult> {
+  await requireAdmin();
   const id = parseId(formData);
 
   if (!id) return { ok: false, message: "ID akun tidak valid." };
@@ -309,6 +314,7 @@ export async function deleteAccount(formData: FormData): Promise<SimpleResult> {
 export async function resetAccountPassword(
   formData: FormData
 ): Promise<SimpleResult> {
+  await requireAdmin();
   const id = parseId(formData);
 
   if (!id) return { ok: false, message: "ID akun tidak valid." };
@@ -344,6 +350,7 @@ export async function importAccountsAction(
   _prev: ImportState,
   formData: FormData
 ): Promise<ImportState> {
+  await requireAdmin();
   const role = text(formData, "role");
   const mode = text(formData, "mode") === "commit" ? "committed" : "preview";
   const file = formData.get("file");

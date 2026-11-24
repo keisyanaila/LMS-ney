@@ -2,6 +2,14 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { computeFinalScore } from "@/lib/grading";
 import {
+  attemptDeadline,
+  GRACE_MS,
+  isOnlineKind,
+  windowState,
+  type Section,
+  SECTION_KINDS,
+} from "@/lib/online";
+import {
   getWeights,
   type AttendanceStatus,
 } from "@/lib/guru-data";
@@ -9,6 +17,7 @@ import {
   announcements,
   assessments,
   attendanceRecords,
+  attempts,
   attendanceSessions,
   materials,
   submissions,
@@ -82,7 +91,9 @@ export async function listStudentAssessments(studentId: number, tcId: number) {
   const items = await db
     .select()
     .from(assessments)
-    .where(eq(assessments.teachingClassId, tcId))
+    .where(
+      and(eq(assessments.teachingClassId, tcId), eq(assessments.published, true))
+    )
     .orderBy(desc(assessments.createdAt));
 
   if (items.length === 0) return [];
@@ -129,14 +140,121 @@ export async function getStudentGrades(studentId: number, tcId: number) {
     getWeights(tcId),
   ]);
 
+  // Nilai kuis/ujian online disembunyikan sampai guru merilisnya.
+  const withVisibility = items.map((item) => {
+    const hidden = isOnlineKind(item.kind) && !item.showResult;
+
+    return {
+      ...item,
+      hidden,
+      visibleScore: hidden ? null : (item.submission?.score ?? null),
+    };
+  });
+
   const scoreOf = (id: number) =>
-    items.find((item) => item.id === id)?.submission?.score ?? null;
+    withVisibility.find((item) => item.id === id)?.visibleScore ?? null;
 
   return {
-    items: [...items].reverse(),
+    items: [...withVisibility].reverse(),
     weights,
     finalScore: computeFinalScore(items, scoreOf, weights),
   };
+}
+
+export type OnlineState =
+  | "belum_dibuka"
+  | "dibuka"
+  | "mengerjakan"
+  | "selesai"
+  | "ditutup";
+
+/** Daftar kuis atau ujian untuk siswa di satu kelas ajar. */
+export async function listStudentOnline(
+  studentId: number,
+  tcId: number,
+  section: Section
+) {
+  return listStudentOnlineMany(studentId, [tcId], section);
+}
+
+/** Kuis atau ujian dari beberapa kelas ajar sekaligus (untuk halaman gabungan). */
+export async function listStudentOnlineMany(
+  studentId: number,
+  tcIds: number[],
+  section: Section
+) {
+  if (tcIds.length === 0) return [];
+
+  const rows = await db
+    .select()
+    .from(assessments)
+    .where(
+      and(
+        inArray(assessments.teachingClassId, tcIds),
+        eq(assessments.published, true),
+        inArray(assessments.kind, SECTION_KINDS[section])
+      )
+    )
+    .orderBy(desc(assessments.createdAt));
+
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((row) => row.id);
+
+  const [attemptRows, scoreRows] = await Promise.all([
+    db
+      .select()
+      .from(attempts)
+      .where(
+        and(eq(attempts.studentId, studentId), inArray(attempts.assessmentId, ids))
+      ),
+    db
+      .select({
+        assessmentId: submissions.assessmentId,
+        score: submissions.score,
+      })
+      .from(submissions)
+      .where(
+        and(
+          eq(submissions.studentId, studentId),
+          inArray(submissions.assessmentId, ids)
+        )
+      ),
+  ]);
+
+  const attemptById = new Map(attemptRows.map((a) => [a.assessmentId, a]));
+  const scoreById = new Map(scoreRows.map((s) => [s.assessmentId, s.score]));
+  const now = new Date();
+
+  return rows.map((item) => {
+    const attempt = attemptById.get(item.id) ?? null;
+
+    let state: OnlineState;
+
+    if (attempt?.submittedAt) {
+      state = "selesai";
+    } else if (attempt) {
+      const deadline = attemptDeadline(
+        attempt.startedAt,
+        item.durationMinutes,
+        item.dueAt
+      );
+
+      state =
+        deadline && now.getTime() > deadline.getTime() + GRACE_MS
+          ? "selesai"
+          : "mengerjakan";
+    } else {
+      state = windowState(item, now);
+    }
+
+    return {
+      ...item,
+      attempt,
+      state,
+      score: item.showResult ? (scoreById.get(item.id) ?? null) : null,
+    };
+  });
 }
 
 /** Riwayat kehadiran milik siswa di satu kelas ajar. */
@@ -207,7 +325,8 @@ export async function getStudentDashboard(student: StudentRef) {
       .where(
         and(
           inArray(assessments.teachingClassId, ids),
-          eq(assessments.kind, "tugas")
+          eq(assessments.published, true),
+          inArray(assessments.kind, ["tugas", "kuis", "uts", "uas"])
         )
       )
       .orderBy(asc(assessments.dueAt)),

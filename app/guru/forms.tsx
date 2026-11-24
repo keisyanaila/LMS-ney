@@ -1,5 +1,6 @@
 "use client";
 
+import { safeSubmit } from "@/lib/safe-submit";
 import { useActionState, useEffect, useRef } from "react";
 import { useState } from "react";
 import {
@@ -68,7 +69,7 @@ export function TeachingClassForm({
   }
 
   return (
-    <form ref={ref} action={action} className="space-y-2">
+    <form ref={ref} onSubmit={safeSubmit(action)} className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-3">
         <select
           name="classId"
@@ -183,7 +184,7 @@ export function MaterialForm({ tcId }: { tcId: number }) {
   const ref = useResetOnSuccess(state);
 
   return (
-    <form ref={ref} action={action} className="space-y-3">
+    <form ref={ref} onSubmit={safeSubmit(action)} className="space-y-3">
       <MaterialFields />
       <Message state={state} />
       <button type="submit" disabled={pending} className={primaryButton}>
@@ -212,7 +213,7 @@ export function MaterialEditForm({
   );
 
   return (
-    <form action={action} className="space-y-3">
+    <form onSubmit={safeSubmit(action)} className="space-y-3">
       <MaterialFields initial={material} />
       <Message state={state} />
       <button type="submit" disabled={pending} className={primaryButton}>
@@ -232,7 +233,7 @@ export function AnnouncementForm({ tcId }: { tcId: number }) {
   const ref = useResetOnSuccess(state);
 
   return (
-    <form ref={ref} action={action} className="space-y-3">
+    <form ref={ref} onSubmit={safeSubmit(action)} className="space-y-3">
       <input
         name="title"
         placeholder="Judul pengumuman"
@@ -256,32 +257,46 @@ export function AnnouncementForm({ tcId }: { tcId: number }) {
 
 // ---------- Tugas / penilaian ----------
 
+type AssessmentMode = "tugas" | "kuis" | "ujian" | "lainnya";
+
+type AssessmentInitial = {
+  title: string;
+  instructions: string | null;
+  dueAt: string;
+  maxScore: number;
+  opensAt?: string;
+  durationMinutes?: number | null;
+  showResult?: boolean;
+};
+
+const MODE_LABELS: Record<AssessmentMode, { noun: string; due: string }> = {
+  tugas: { noun: "tugas", due: "Tenggat (WIB)" },
+  kuis: { noun: "kuis", due: "Ditutup pada (WIB)" },
+  ujian: { noun: "ujian", due: "Ditutup pada (WIB)" },
+  lainnya: { noun: "penilaian praktik", due: "Tanggal (WIB)" },
+};
+
 function AssessmentFields({
   mode,
   initial,
 }: {
-  mode: "tugas" | "lainnya";
-  initial?: {
-    title: string;
-    instructions: string | null;
-    dueAt: string;
-    maxScore: number;
-  };
+  mode: AssessmentMode;
+  initial?: AssessmentInitial;
 }) {
+  const online = mode === "kuis" || mode === "ujian";
+
   return (
     <>
-      {mode === "lainnya" && !initial && (
-        <select name="kind" className={inputClass} defaultValue="kuis">
-          <option value="kuis">Kuis</option>
+      {mode === "ujian" && !initial && (
+        <select name="kind" className={inputClass} defaultValue="uts">
           <option value="uts">UTS</option>
           <option value="uas">UAS</option>
-          <option value="praktik">Praktik</option>
         </select>
       )}
 
       <input
         name="title"
-        placeholder={mode === "tugas" ? "Judul tugas" : "Judul penilaian"}
+        placeholder={`Judul ${MODE_LABELS[mode].noun}`}
         defaultValue={initial?.title}
         className={inputClass}
         required
@@ -289,16 +304,28 @@ function AssessmentFields({
 
       <textarea
         name="instructions"
-        placeholder="Instruksi untuk murid (opsional)"
+        placeholder="Petunjuk untuk murid (opsional)"
         rows={3}
         defaultValue={initial?.instructions ?? ""}
         className={inputClass}
       />
 
       <div className="grid gap-3 sm:grid-cols-2">
+        {online && (
+          <label className="block text-sm">
+            <span className="mb-1 block font-semibold">Dibuka pada (WIB)</span>
+            <input
+              name="opensAt"
+              type="datetime-local"
+              defaultValue={initial?.opensAt}
+              className={inputClass}
+            />
+          </label>
+        )}
+
         <label className="block text-sm">
           <span className="mb-1 block font-semibold">
-            {mode === "tugas" ? "Tenggat (WIB)" : "Tanggal (WIB)"}
+            {MODE_LABELS[mode].due}
           </span>
           <input
             name="dueAt"
@@ -307,6 +334,23 @@ function AssessmentFields({
             className={inputClass}
           />
         </label>
+
+        {online && (
+          <label className="block text-sm">
+            <span className="mb-1 block font-semibold">
+              Durasi pengerjaan (menit)
+            </span>
+            <input
+              name="durationMinutes"
+              type="number"
+              min={1}
+              max={600}
+              defaultValue={initial?.durationMinutes ?? ""}
+              placeholder="Kosongkan = tanpa batas durasi"
+              className={inputClass}
+            />
+          </label>
+        )}
 
         <label className="block text-sm">
           <span className="mb-1 block font-semibold">Nilai maksimal</span>
@@ -320,6 +364,21 @@ function AssessmentFields({
           />
         </label>
       </div>
+
+      {online && (
+        <label className="flex items-start gap-2 text-sm text-black/70">
+          <input
+            type="checkbox"
+            name="showResult"
+            defaultChecked={initial?.showResult ?? false}
+            className="mt-0.5"
+          />
+          <span>
+            Tampilkan nilai dan pembahasan ke siswa setelah selesai. Biarkan
+            kosong jika ingin merilis nilai nanti secara manual.
+          </span>
+        </label>
+      )}
     </>
   );
 }
@@ -329,7 +388,7 @@ export function AssessmentForm({
   mode,
 }: {
   tcId: number;
-  mode: "tugas" | "lainnya";
+  mode: AssessmentMode;
 }) {
   const [state, action, pending] = useActionState(
     createAssessment.bind(null, String(tcId), mode),
@@ -338,33 +397,30 @@ export function AssessmentForm({
   const ref = useResetOnSuccess(state);
 
   return (
-    <form ref={ref} action={action} className="space-y-3">
+    <form ref={ref} onSubmit={safeSubmit(action)} className="space-y-3">
       <AssessmentFields mode={mode} />
       <Message state={state} />
       <button type="submit" disabled={pending} className={primaryButton}>
-        {pending
-          ? "Menyimpan..."
-          : mode === "tugas"
-            ? "Buat Tugas"
-            : "Buat Penilaian"}
+        {pending ? "Menyimpan..." : `Buat ${MODE_LABELS[mode].noun}`}
       </button>
     </form>
   );
 }
+
+const MODE_BY_KIND: Record<string, AssessmentMode> = {
+  tugas: "tugas",
+  kuis: "kuis",
+  uts: "ujian",
+  uas: "ujian",
+  praktik: "lainnya",
+};
 
 export function AssessmentEditForm({
   tcId,
   assessment,
 }: {
   tcId: number;
-  assessment: {
-    id: number;
-    kind: string;
-    title: string;
-    instructions: string | null;
-    dueAt: string;
-    maxScore: number;
-  };
+  assessment: AssessmentInitial & { id: number; kind: string };
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(
     updateAssessment.bind(
@@ -376,9 +432,9 @@ export function AssessmentEditForm({
   );
 
   return (
-    <form action={action} className="space-y-3">
+    <form onSubmit={safeSubmit(action)} className="space-y-3">
       <AssessmentFields
-        mode={assessment.kind === "tugas" ? "tugas" : "lainnya"}
+        mode={MODE_BY_KIND[assessment.kind] ?? "tugas"}
         initial={assessment}
       />
       <Message state={state} />
@@ -423,7 +479,7 @@ export function WeightsForm({
   );
 
   return (
-    <form action={action} className="space-y-3">
+    <form onSubmit={safeSubmit(action)} className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-5">
         {WEIGHT_FIELDS.map((field) => (
           <label key={field.kind} className="block text-sm">
@@ -503,7 +559,7 @@ export function ScoreForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={safeSubmit(action)} className="space-y-4">
       <div className="overflow-x-auto">
         <table className="w-full min-w-160 text-left text-sm">
           <thead>
@@ -607,7 +663,7 @@ export function AttendanceSessionForm({
   );
 
   return (
-    <form action={action} className="space-y-2">
+    <form onSubmit={safeSubmit(action)} className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-3">
         <input
           name="meetingDate"
@@ -669,7 +725,7 @@ export function AttendanceForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={safeSubmit(action)} className="space-y-4">
       <div className="overflow-x-auto">
         <table className="w-full min-w-160 text-left text-sm">
           <thead>

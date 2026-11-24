@@ -4,7 +4,7 @@ import PanelSidebar from "@/components/PanelSidebar";
 import { requireStudent } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "Siswa | LMS Ney",
+  title: "Learnova | Ruang Belajar",
 };
 
 export default async function SiswaLayout({
@@ -15,18 +15,21 @@ export default async function SiswaLayout({
   const { user } = await requireStudent();
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-black lg:flex-row">
+    <div className="flex min-h-screen flex-col bg-[#f7f8ff] text-black lg:flex-row">
       <PanelSidebar
         name={user.fullName}
         panelLabel="Siswa"
         homeHref="/siswa"
         nav={[
-          { href: "/siswa", label: "Beranda" },
-          { href: "/siswa/kelas", label: "Mata Pelajaran" },
+          { href: "/siswa", label: "Dashboard", icon: "dashboard" },
+          { href: "/siswa/jadwal", label: "Jadwal Pelajaran", icon: "calendar" },
+          { href: "/siswa/materi", label: "Materi", icon: "book" },
+          { href: "/siswa/kuis", label: "Kuis", icon: "quiz" },
+          { href: "/siswa/ujian", label: "Ujian", icon: "exam" },
         ]}
       />
       <main className="min-w-0 flex-1 px-4 py-8 sm:px-8 lg:px-10">
-        <div className="mx-auto max-w-5xl">{children}</div>
+        <div className="mx-auto max-w-6xl">{children}</div>
       </main>
     </div>
   );

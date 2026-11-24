@@ -1,5 +1,6 @@
 "use client";
 
+import { safeSubmit } from "@/lib/safe-submit";
 import { useActionState } from "react";
 import { submitAssignment, type SubmitState } from "./actions";
 import { ACCEPT_ATTRIBUTE, MAX_UPLOAD_LABEL } from "@/lib/upload-config";
@@ -27,7 +28,7 @@ export function SubmitForm({
   );
 
   return (
-    <form action={action} className="space-y-3">
+    <form onSubmit={safeSubmit(action)} className="space-y-3">
       <label className="block text-sm">
         <span className="mb-1 block font-semibold">Jawaban (opsional)</span>
         <textarea

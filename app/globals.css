@@ -1,26 +1,121 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Learnova — lavender, soft blue, white, and deep purple. */
+@theme {
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+
+  --color-blue-50: #f5f3ff;
+  --color-blue-100: #eae7ff;
+  --color-blue-200: #d9d3ff;
+  --color-blue-300: #bcb2ff;
+  --color-blue-400: #9788ff;
+  --color-blue-500: #7865f5;
+  --color-blue-600: #6550e8;
+  --color-blue-700: #5140c8;
+  --color-blue-800: #3d3295;
+  --color-blue-900: #29245f;
+  --color-blue-950: #201d4b;
+
+  --color-slate-50: #f7f8ff;
+  --color-black: #202044;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: light;
+  }
+
+  body {
+    background: #f6f7ff;
+    color: var(--color-black);
+    font-family: var(--font-sans);
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: var(--color-blue-600);
+    color: #fff;
+  }
+
+  /* Tailwind v4 membuat tombol berkursor panah; kembalikan ke tangan
+     supaya jelas bahwa elemen bisa diklik. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  label[for] {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-blue-500);
+    outline-offset: 2px;
+  }
+
+  input,
+  select,
+  textarea {
+    background-color: #fff;
+    color: var(--color-black);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Satu-satunya gerak dekoratif: pita warna di halaman masuk naik saat dibuka. */
+@keyframes rise {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.stripe-rise {
+  transform-origin: bottom;
+  animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stripe-rise {
+    animation: none;
+  }
+}
+
+@layer components {
+  .learnova-surface {
+    border: 1px solid rgba(117, 103, 220, .12);
+    background: rgba(255,255,255,.88);
+    box-shadow: 0 8px 24px rgba(74, 65, 160, .06);
+  }
+}
+
+
+/* Polesan visual panel admin Learnova */
+@layer components {
+  .admin-page {
+    background:
+      radial-gradient(ellipse at 85% 0%, rgba(185, 177, 255, .18), transparent 34%),
+      #f6f7ff;
+  }
+  .admin-hero {
+    background: linear-gradient(112deg, #eeedff 0%, #e5e8ff 52%, #d9ddff 100%);
+    border: 1px solid rgba(117, 103, 220, .12);
+    box-shadow: 0 10px 28px rgba(74, 65, 160, .07);
+  }
+  .admin-panel {
+    border: 1px solid rgba(117, 103, 220, .13);
+    background: rgba(255,255,255,.92);
+    box-shadow: 0 8px 24px rgba(74, 65, 160, .055);
+  }
 }

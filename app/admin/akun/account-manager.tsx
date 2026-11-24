@@ -225,7 +225,7 @@ export default function AccountManager({
         </div>
       )}
 
-      <section className="rounded-lg border border-black/10 bg-white p-5">
+      <section className="admin-panel rounded-2xl p-5 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Daftar akun</h2>
@@ -238,7 +238,7 @@ export default function AccountManager({
           </button>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-1 border-b border-black/10" role="tablist">
+        <div className="mt-5 flex flex-wrap gap-2" role="tablist">
           {[["all", "Semua"], ...ACCOUNT_ROLES.map((r) => [r, ROLE_LABELS[r]])].map(
             ([value, label]) => (
               <button
@@ -247,10 +247,10 @@ export default function AccountManager({
                 role="tab"
                 aria-selected={roleTab === value}
                 onClick={() => setRoleTab(value)}
-                className={`-mb-px border-b-2 px-3 py-2 text-sm transition ${
+                className={`rounded-full border px-4 py-2 text-sm transition ${
                   roleTab === value
-                    ? "border-blue-600 font-bold text-blue-700"
-                    : "border-transparent text-black/60 hover:text-black"
+                    ? "border-violet-300 bg-violet-100 font-bold text-violet-800 shadow-sm"
+                    : "border-violet-100 bg-white text-slate-600 hover:bg-violet-50"
                 }`}
               >
                 {label} <span className="text-xs text-black/40">{counts[value]}</span>
@@ -281,43 +281,43 @@ export default function AccountManager({
         </div>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="w-full min-w-[900px] text-left text-sm">
             <thead>
-              <tr className="border-b border-black/10 text-xs text-black/50">
-                <th className="px-3 py-3 font-bold">Nama</th>
-                <th className="px-3 py-3 font-bold">Username</th>
-                <th className="px-3 py-3 font-bold">Jenis</th>
-                <th className="px-3 py-3 font-bold">Data</th>
-                <th className="px-3 py-3 font-bold">Status</th>
+              <tr className="border-b border-violet-100 bg-violet-50/80 text-xs text-violet-900">
+                <th className="px-3 py-4 font-bold">Nama</th>
+                <th className="px-3 py-4 font-bold">Username</th>
+                <th className="px-3 py-4 font-bold">Jenis</th>
+                <th className="px-3 py-4 font-bold">Data</th>
+                <th className="px-3 py-4 font-bold">Status</th>
                 <th className="px-3 py-3 text-right font-bold">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((account) => (
-                <tr key={account.id} className="border-b border-black/5 hover:bg-blue-50/40">
-                  <td className="px-3 py-3">
+                <tr key={account.id} className="border-b border-violet-100/80 transition hover:bg-violet-50/50">
+                  <td className="px-3 py-3.5">
                     <div className="font-semibold">{account.fullName}</div>
                     <div className="text-xs text-black/50">{account.email}</div>
                   </td>
-                  <td className="px-3 py-3">{account.username}</td>
-                  <td className="px-3 py-3">
-                    <span className="inline-block rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
+                  <td className="px-3 py-3.5">{account.username}</td>
+                  <td className="px-3 py-3.5">
+                    <span className="inline-block rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700">
                       {isAccountRole(account.role) ? ROLE_LABELS[account.role] : account.role}
                     </span>
                   </td>
                   <td className="px-3 py-3 text-black/60">{detailOf(account) || "-"}</td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-3.5">
                     <span
                       className={`inline-block rounded-full px-2.5 py-1 text-xs font-bold ${
                         account.status === "active"
-                          ? "bg-green-50 text-green-700"
+                          ? "bg-emerald-50 text-emerald-700"
                           : "bg-black/5 text-black/60"
                       }`}
                     >
                       {account.status === "active" ? "Aktif" : "Nonaktif"}
                     </span>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-3.5">
                     <div className="flex justify-end gap-1.5">
                       <button type="button" onClick={() => setEditing(account)} className={secondaryButton}>
                         Edit
@@ -363,7 +363,7 @@ export default function AccountManager({
                             run(deleteAccount, { id: String(account.id) });
                           }
                         }}
-                        className="rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+                        className="rounded-full border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
                       >
                         Hapus
                       </button>

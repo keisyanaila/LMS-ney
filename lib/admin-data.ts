@@ -19,7 +19,7 @@ export type DataResult<T> =
 
 export type AdminRow = {
   id: number;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 function toError(error: unknown) {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireTeacher } from "@/lib/auth";
 import {
   getOwnedAssessment,
@@ -9,6 +9,7 @@ import {
   listSubmissions,
 } from "@/lib/guru-data";
 import { formatDateTime } from "@/lib/format";
+import { isOnlineKind, itemPath } from "@/lib/online";
 import { Badge, Card } from "@/components/admin/ui";
 import { ScoreForm, type ScoreRow } from "../../../../forms";
 
@@ -26,6 +27,11 @@ export default async function BeriNilaiPage({
   const assessment = await getOwnedAssessment(kelas.id, Number(aid));
 
   if (!assessment) notFound();
+
+  // Kuis dan ujian online punya halaman hasil sendiri.
+  if (isOnlineKind(assessment.kind)) {
+    redirect(itemPath("guru", kelas.id, assessment.kind, assessment.id));
+  }
 
   const [studentList, submissionList] = await Promise.all([
     listClassStudents(kelas.classId),

@@ -11,6 +11,8 @@ export default function StudentClassTabs({ id }: { id: number }) {
     { href: base, label: "Pengumuman" },
     { href: `${base}/materi`, label: "Materi" },
     { href: `${base}/tugas`, label: "Tugas" },
+    { href: `${base}/kuis`, label: "Kuis" },
+    { href: `${base}/ujian`, label: "Ujian" },
     { href: `${base}/nilai`, label: "Nilai" },
     { href: `${base}/kehadiran`, label: "Kehadiran" },
   ];

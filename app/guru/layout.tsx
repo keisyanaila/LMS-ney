@@ -4,7 +4,7 @@ import PanelSidebar from "@/components/PanelSidebar";
 import { requireTeacher } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "Guru | LMS Ney",
+  title: "Guru | Learnova",
 };
 
 export default async function GuruLayout({

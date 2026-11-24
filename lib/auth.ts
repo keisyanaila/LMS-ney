@@ -76,3 +76,25 @@ export const requireStudent = cache(async () => {
 
   return { user, student };
 });
+
+/**
+ * Wajib login sebagai admin. Dipanggil di layout admin, setiap server action
+ * admin, dan setiap API admin (proxy.ts hanya pemeriksaan awal).
+ */
+export const requireAdmin = cache(async () => {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== "admin") redirect("/");
+  if (user.mustChangePassword) redirect(CHANGE_PASSWORD_PATH);
+
+  return { user };
+});
+
+/** Untuk route handler: kembalikan null jika bukan admin (tanpa redirect). */
+export async function getAdminOrNull() {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== "admin" || user.mustChangePassword) return null;
+
+  return user;
+}

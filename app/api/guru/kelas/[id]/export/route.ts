@@ -62,7 +62,7 @@ export async function GET(
   }
 
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "LMS Ney";
+  workbook.creator = "Learnova";
 
   const title = `${kelas.subject} - ${kelas.className}`;
 

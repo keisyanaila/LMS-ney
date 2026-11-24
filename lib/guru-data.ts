@@ -524,3 +524,16 @@ export async function getAttendanceMatrix(
     })),
   };
 }
+
+export async function listAssessmentsByKinds(
+  teachingClassId: number,
+  kinds: readonly AssessmentKind[]
+) {
+  const rows = await db
+    .select()
+    .from(assessments)
+    .where(eq(assessments.teachingClassId, teachingClassId))
+    .orderBy(desc(assessments.createdAt));
+
+  return rows.filter((row) => kinds.includes(row.kind));
+}

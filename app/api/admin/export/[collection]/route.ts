@@ -1,3 +1,4 @@
+import { getAdminOrNull } from "@/lib/auth";
 
 import type { NextRequest } from "next/server";
 import { listDocs } from "@/lib/admin-data";
@@ -36,6 +37,13 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ collection: string }> }
 ) {
+  if (!(await getAdminOrNull())) {
+    return Response.json(
+      { success: false, message: "Hanya admin yang boleh mengunduh data." },
+      { status: 403 }
+    );
+  }
+
   const { collection } = await params;
 
   if (!ALLOWED_COLLECTIONS.includes(collection as CollectionKey)) {

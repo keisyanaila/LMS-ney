@@ -57,7 +57,7 @@ export default async function SiswaNilaiPage({
               </thead>
               <tbody>
                 {items.map((item) => {
-                  const score = item.submission?.score ?? null;
+                  const score = item.visibleScore;
 
                   return (
                     <tr key={item.id} className="border-b border-black/5">
@@ -66,9 +66,11 @@ export default async function SiswaNilaiPage({
                         <Badge tone="gray">{KIND_LABELS[item.kind]}</Badge>
                       </td>
                       <td className="px-3 py-3">
-                        {score === null
-                          ? "Belum dinilai"
-                          : `${formatScore(score)} / ${item.maxScore}`}
+                        {score !== null
+                          ? `${formatScore(score)} / ${item.maxScore}`
+                          : item.hidden
+                            ? "Belum dirilis"
+                            : "Belum dinilai"}
                       </td>
                       <td className="px-3 py-3 text-black/70">
                         {item.submission?.feedback ?? "—"}

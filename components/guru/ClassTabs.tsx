@@ -12,6 +12,8 @@ export default function ClassTabs({ id }: { id: number }) {
     { href: `${base}/pengumuman`, label: "Pengumuman" },
     { href: `${base}/materi`, label: "Materi" },
     { href: `${base}/tugas`, label: "Tugas" },
+    { href: `${base}/kuis`, label: "Kuis" },
+    { href: `${base}/ujian`, label: "Ujian" },
     { href: `${base}/penilaian`, label: "Penilaian" },
     { href: `${base}/kehadiran`, label: "Kehadiran" },
   ];

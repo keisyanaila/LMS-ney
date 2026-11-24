@@ -1,5 +1,6 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -35,6 +36,7 @@ export async function createAcademicYear(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await requireAdmin();
   const name = nameOf(formData);
   const wantsActive = formData.get("isActive") === "on";
 
@@ -89,6 +91,7 @@ export async function updateAcademicYear(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  await requireAdmin();
   const yearId = Number(id);
   const name = nameOf(formData);
 
@@ -147,6 +150,7 @@ export async function updateAcademicYear(
 }
 
 export async function setActiveAcademicYear(id: string): Promise<void> {
+  await requireAdmin();
   const yearId = Number(id);
 
   if (!Number.isInteger(yearId) || yearId <= 0) return;
@@ -173,6 +177,7 @@ export async function setActiveAcademicYear(id: string): Promise<void> {
 }
 
 export async function deleteAcademicYear(id: string): Promise<void> {
+  await requireAdmin();
   const yearId = Number(id);
 
   if (!Number.isInteger(yearId) || yearId <= 0) return;

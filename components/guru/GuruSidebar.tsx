@@ -21,7 +21,7 @@ export default function GuruSidebar({ name }: { name: string }) {
     <>
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-black/10 bg-white px-4 py-3 lg:hidden">
         <Link href="/guru" className="font-bold">
-          LMS Ney Guru
+          Learnova Guru
         </Link>
         <button
           type="button"
@@ -46,7 +46,7 @@ export default function GuruSidebar({ name }: { name: string }) {
       >
         <div className="flex items-center justify-between px-5 py-5">
           <Link href="/guru">
-            <span className="block font-bold">LMS Ney</span>
+            <span className="block font-bold">Learnova</span>
             <span className="text-xs text-black/50">Panel Guru</span>
           </Link>
           <button

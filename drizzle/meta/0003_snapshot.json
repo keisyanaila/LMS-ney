@@ -1,6 +1,6 @@
 {
-  "id": "00ec421c-c08c-490b-9551-01213a1cd692",
-  "prevId": "1e5e2b17-83db-4ee4-897c-a1de25682177",
+  "id": "4483ba3f-7896-4ac7-a701-a6866714872a",
+  "prevId": "00ec421c-c08c-490b-9551-01213a1cd692",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -222,6 +222,32 @@
           "notNull": true,
           "default": 100
         },
+        "opens_at": {
+          "name": "opens_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration_minutes": {
+          "name": "duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "show_result": {
+          "name": "show_result",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "published": {
+          "name": "published",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -238,6 +264,197 @@
           "tableTo": "teaching_classes",
           "columnsFrom": [
             "teaching_class_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.attempt_answers": {
+      "name": "attempt_answers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "attempt_id": {
+          "name": "attempt_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "question_id": {
+          "name": "question_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "selected_index": {
+          "name": "selected_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "essay_text": {
+          "name": "essay_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "awarded_points": {
+          "name": "awarded_points",
+          "type": "numeric(6, 2)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "attempt_answers_attempt_question_unique": {
+          "name": "attempt_answers_attempt_question_unique",
+          "columns": [
+            {
+              "expression": "attempt_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "question_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "attempt_answers_attempt_id_attempts_id_fk": {
+          "name": "attempt_answers_attempt_id_attempts_id_fk",
+          "tableFrom": "attempt_answers",
+          "tableTo": "attempts",
+          "columnsFrom": [
+            "attempt_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "attempt_answers_question_id_questions_id_fk": {
+          "name": "attempt_answers_question_id_questions_id_fk",
+          "tableFrom": "attempt_answers",
+          "tableTo": "questions",
+          "columnsFrom": [
+            "question_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.attempts": {
+      "name": "attempts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "assessment_id": {
+          "name": "assessment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "student_id": {
+          "name": "student_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "attempts_assessment_student_unique": {
+          "name": "attempts_assessment_student_unique",
+          "columns": [
+            {
+              "expression": "assessment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "student_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "attempts_assessment_id_assessments_id_fk": {
+          "name": "attempts_assessment_id_assessments_id_fk",
+          "tableFrom": "attempts",
+          "tableTo": "assessments",
+          "columnsFrom": [
+            "assessment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "attempts_student_id_students_id_fk": {
+          "name": "attempts_student_id_students_id_fk",
+          "tableFrom": "attempts",
+          "tableTo": "students",
+          "columnsFrom": [
+            "student_id"
           ],
           "columnsTo": [
             "id"
@@ -755,6 +972,83 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.questions": {
+      "name": "questions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "assessment_id": {
+          "name": "assessment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "question_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "options": {
+          "name": "options",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correct_index": {
+          "name": "correct_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "points": {
+          "name": "points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "questions_assessment_id_assessments_id_fk": {
+          "name": "questions_assessment_id_assessments_id_fk",
+          "tableFrom": "questions",
+          "tableTo": "assessments",
+          "columnsFrom": [
+            "assessment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -1312,6 +1606,14 @@
         "izin",
         "sakit",
         "alpa"
+      ]
+    },
+    "public.question_type": {
+      "name": "question_type",
+      "schema": "public",
+      "values": [
+        "pilihan_ganda",
+        "esai"
       ]
     },
     "public.user_role": {

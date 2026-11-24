@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireTeacher } from "@/lib/auth";
 import { getOwnedAssessment, getOwnedTeachingClass } from "@/lib/guru-data";
 import { toDatetimeLocal } from "@/lib/format";
+import { itemPath } from "@/lib/online";
 import { Card } from "@/components/admin/ui";
 import { AssessmentEditForm } from "../../../../../forms";
 
@@ -24,7 +25,7 @@ export default async function EditPenilaianPage({
   return (
     <>
       <Link
-        href={`/guru/kelas/${kelas.id}/penilaian/${assessment.id}`}
+        href={itemPath("guru", kelas.id, assessment.kind, assessment.id)}
         className="mb-4 inline-block text-sm font-semibold text-blue-700 hover:underline"
       >
         &larr; Kembali
@@ -40,6 +41,9 @@ export default async function EditPenilaianPage({
             instructions: assessment.instructions,
             dueAt: toDatetimeLocal(assessment.dueAt),
             maxScore: assessment.maxScore,
+            opensAt: toDatetimeLocal(assessment.opensAt),
+            durationMinutes: assessment.durationMinutes,
+            showResult: assessment.showResult,
           }}
         />
       </Card>

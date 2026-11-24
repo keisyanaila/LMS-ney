@@ -12,6 +12,7 @@ import {
   listMaterials,
 } from "@/lib/guru-data";
 import { formatDateTime } from "@/lib/format";
+import { itemPath } from "@/lib/online";
 import { Card, DataTable } from "@/components/admin/ui";
 import DeleteButton from "@/components/admin/DeleteButton";
 import { deleteTeachingClass } from "../../actions";
@@ -72,6 +73,12 @@ export default async function RingkasanKelasPage({
         <Link href={`${base}/tugas`} className={quickLink}>
           + Tugas
         </Link>
+        <Link href={`${base}/kuis`} className={quickLink}>
+          + Kuis
+        </Link>
+        <Link href={`${base}/ujian`} className={quickLink}>
+          + Ujian
+        </Link>
         <Link href={`${base}/pengumuman`} className={quickLink}>
           + Pengumuman
         </Link>
@@ -100,7 +107,7 @@ export default async function RingkasanKelasPage({
               {needGrading.map(({ a, waiting }) => (
                 <li key={a.id}>
                   <Link
-                    href={`${base}/penilaian/${a.id}`}
+                    href={itemPath("guru", kelas.id, a.kind, a.id)}
                     className="block py-2.5 text-sm hover:text-blue-700"
                   >
                     <span className="block font-semibold">{a.title}</span>

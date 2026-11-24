@@ -18,8 +18,10 @@ export default async function ManajemenAkunPage({
 
   const { role, tambah } = await searchParams;
 
+  let loaded;
+
   try {
-    const [accounts, classList] = await Promise.all([
+    loaded = await Promise.all([
       db
         .select({
           id: users.id,
@@ -42,18 +44,6 @@ export default async function ManajemenAkunPage({
         .orderBy(desc(users.id)),
       db.select({ id: classes.id, name: classes.name }).from(classes).orderBy(classes.name),
     ]);
-
-    return (
-      <>
-        <PageHeader item={getNavItem("/admin/akun")} />
-        <AccountManager
-          accounts={accounts}
-          classes={classList}
-          initialFilter={role ?? null}
-          initialAdd={tambah ?? null}
-        />
-      </>
-    );
   } catch (error) {
     console.error("Gagal mengambil data akun:", error);
 
@@ -64,4 +54,17 @@ export default async function ManajemenAkunPage({
       </>
     );
   }
+  const [accounts, classList] = loaded;
+
+  return (
+    <>
+      <PageHeader item={getNavItem("/admin/akun")} />
+      <AccountManager
+        accounts={accounts}
+        classes={classList}
+        initialFilter={role ?? null}
+        initialAdd={tambah ?? null}
+      />
+    </>
+  );
 }

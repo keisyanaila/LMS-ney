@@ -15,13 +15,16 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-bold">{item.label}</h1>
-        <p className="mt-1 text-sm text-black/50">{item.description}</p>
+    <section className="admin-hero relative mb-7 flex min-h-[190px] items-center justify-between overflow-hidden rounded-[26px] px-6 py-7 sm:px-9">
+      <div className="relative z-10 max-w-2xl">
+        <p className="mb-3 text-xs font-bold uppercase tracking-[.16em] text-violet-600">Learnova Admin <span className="mx-1 text-violet-300">/</span> Panel</p>
+        <h1 className="font-display text-3xl font-bold tracking-tight text-blue-950 sm:text-4xl">{item.label}</h1>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-indigo-900/75 sm:text-base">{item.description}</p>
+        {actions && <div className="mt-5 flex flex-wrap gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-    </div>
+      <img src="/learnova-mascot.png" alt="Maskot robot Learnova" className="pointer-events-none absolute -right-2 -bottom-16 hidden h-[250px] w-[250px] object-contain drop-shadow-xl sm:block lg:right-8 lg:h-[270px] lg:w-[270px]" />
+      <div className="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full border-[34px] border-white/25" />
+    </section>
   );
 }
 
@@ -36,7 +39,7 @@ export function Card({
 }) {
   return (
     <section
-      className={`rounded-lg border border-black/10 bg-white p-6 ${className}`}
+      className={`admin-panel rounded-2xl p-6 ${className}`}
     >
       {title && <h2 className="mb-4 text-lg font-semibold">{title}</h2>}
       {children}
@@ -45,8 +48,8 @@ export function Card({
 }
 
 const buttonStyles = {
-  primary: "bg-blue-600 text-white hover:bg-blue-500",
-  secondary: "border border-black/10 bg-white hover:bg-black/5",
+  primary: "bg-blue-600 text-white hover:bg-blue-700",
+  secondary: "border border-black/10 bg-white hover:bg-blue-50",
   danger: "bg-red-600 text-white hover:bg-red-500",
 };
 
@@ -54,15 +57,18 @@ export function Button({
   children,
   variant = "primary",
   type = "button",
+  disabled = false,
 }: {
   children: ReactNode;
   variant?: keyof typeof buttonStyles;
   type?: "button" | "submit";
+  disabled?: boolean;
 }) {
   return (
     <button
       type={type}
-      className={`rounded-md px-4 py-2.5 text-sm font-bold transition ${buttonStyles[variant]}`}
+      disabled={disabled}
+      className={`rounded-lg px-4 py-2.5 text-sm font-bold transition disabled:opacity-50 ${buttonStyles[variant]}`}
     >
       {children}
     </button>
@@ -90,7 +96,7 @@ export function Field({
         type={type}
         defaultValue={defaultValue}
         placeholder={placeholder}
-        className="w-full rounded-md border border-black/10 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        className="w-full rounded-lg border border-black/15 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
       />
     </label>
   );
@@ -166,9 +172,9 @@ export function DataTable({
     <div className="overflow-x-auto">
       <table className="w-full min-w-120 text-left text-sm">
         <thead>
-          <tr className="border-b border-black/10 text-xs uppercase tracking-wide text-black/50">
+          <tr className="border-b border-black/10 text-xs text-black/55">
             {columns.map((col) => (
-              <th key={col.key} className="px-3 py-3 font-bold">
+              <th key={col.key} className="px-3 py-3 font-semibold">
                 {col.label}
               </th>
             ))}

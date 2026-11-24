@@ -7,6 +7,7 @@ import {
   KIND_LABELS,
 } from "@/lib/guru-data";
 import { clearWeights } from "../../../actions";
+import { itemPath } from "@/lib/online";
 import { formatScore } from "@/lib/format";
 import { Badge, Card } from "@/components/admin/ui";
 import DeleteButton from "@/components/admin/DeleteButton";
@@ -28,14 +29,14 @@ export default async function PenilaianPage({
     kelas.id,
     kelas.classId
   );
-  const others = items.filter((item) => item.kind !== "tugas");
+  const others = items.filter((item) => item.kind === "praktik");
 
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-black/60">
-          Lihat nilai semua murid, atur bobot nilai akhir, dan unduh rekap ke
-          Excel.
+          Lihat nilai semua murid (tugas, kuis, ujian, praktik), atur bobot nilai
+          akhir, dan unduh rekap ke Excel.
         </p>
         <a
           href={`/api/guru/kelas/${kelas.id}/export?jenis=nilai`}
@@ -67,7 +68,7 @@ export default async function PenilaianPage({
                       className="min-w-28 px-3 py-3 font-bold normal-case"
                     >
                       <Link
-                        href={`/guru/kelas/${kelas.id}/penilaian/${item.id}`}
+                        href={itemPath("guru", kelas.id, item.kind, item.id)}
                         className="text-blue-700 hover:underline"
                       >
                         {item.title}
@@ -128,12 +129,16 @@ export default async function PenilaianPage({
         )}
       </Card>
 
-      <Card title="Tambah penilaian lain (kuis, UTS, UAS, praktik)" className="mb-6">
+      <Card title="Tambah penilaian praktik" className="mb-6">
+        <p className="mb-4 text-sm text-black/60">
+          Untuk nilai yang Anda isi sendiri, mis. praktik atau unjuk kerja. Kuis
+          dan ujian online dibuat di tab Kuis dan Ujian.
+        </p>
         <AssessmentForm tcId={kelas.id} mode="lainnya" />
       </Card>
 
       {others.length > 0 && (
-        <Card title="Penilaian lain">
+        <Card title="Penilaian praktik">
           <ul className="divide-y divide-black/5">
             {others.map((item) => (
               <li

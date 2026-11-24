@@ -1,5 +1,6 @@
 "use client";
 
+import { safeSubmit } from "@/lib/safe-submit";
 import { useActionState } from "react";
 import { changePassword } from "@/app/actions/password";
 
@@ -10,7 +11,7 @@ export default function ChangePasswordForm({ forced }: { forced: boolean }) {
   const [state, action, pending] = useActionState(changePassword, null);
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={safeSubmit(action)} className="space-y-4">
       {!forced && (
         <label className="block text-sm">
           <span className="mb-1 block font-semibold">Password saat ini</span>

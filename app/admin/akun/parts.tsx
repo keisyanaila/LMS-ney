@@ -8,13 +8,13 @@ import {
 } from "@/lib/account-config";
 
 export const inputClass =
-  "w-full rounded-md border border-black/10 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10";
+  "w-full rounded-xl border border-violet-100 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-500/10";
 
 export const primaryButton =
-  "rounded-md bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-md shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50";
 
 export const secondaryButton =
-  "rounded-md border border-black/10 bg-white px-3 py-2 text-sm font-semibold transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-full border border-violet-100 bg-white px-3 py-2 text-sm font-semibold text-violet-800 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50";
 
 export type ClassOption = { id: number; name: string };
 
