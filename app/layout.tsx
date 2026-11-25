@@ -15,8 +15,8 @@ const heading = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Learnova | Learning Management System",
-  description: "Learnova — ruang belajar digital yang lebih menyenangkan.",
+  title: "RoboLearn | Learning Management System",
+  description: "RoboLearn — belajar lebih cerdas, bersama robot yang ramah.",
 };
 
 export default function RootLayout({

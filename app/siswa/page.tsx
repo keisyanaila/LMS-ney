@@ -166,7 +166,7 @@ export default async function SiswaDashboardPage() {
           </div>
         </div>
         <div className="absolute -bottom-2 right-[-12px] z-0 h-[190px] w-[160px] sm:-bottom-5 sm:right-7 sm:h-[300px] sm:w-[285px]">
-          <Image src="/learnova-mascot.png" alt="Maskot robot Learnova" fill priority sizes="(max-width: 640px) 235px, 285px" className="object-contain object-bottom drop-shadow-[0_12px_16px_rgba(58,47,140,0.18)]" />
+          <Image src="/robolearn-mascot.png" alt="Maskot robot RoboLearn" fill priority sizes="(max-width: 640px) 235px, 285px" className="object-contain object-bottom drop-shadow-[0_12px_16px_rgba(58,47,140,0.18)]" />
         </div>
         <div className="absolute bottom-5 right-5 z-10 hidden rounded-2xl border border-white/70 bg-white/75 p-3 text-center shadow-sm sm:block">
           <p className="text-2xl font-extrabold text-blue-700">{progress.percent}%</p>

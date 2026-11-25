@@ -4,7 +4,7 @@ import { loadStudentPortal } from "@/lib/siswa-portal";
 import { EmptyState, PageTitle } from "@/components/siswa/widgets";
 import MateriBrowser from "@/components/siswa/MateriBrowser";
 
-export const metadata: Metadata = { title: "Materi | Learnova" };
+export const metadata: Metadata = { title: "Materi | RoboLearn" };
 
 export default async function MateriPage() {
   const { student } = await requireStudent();
@@ -21,7 +21,7 @@ export default async function MateriPage() {
         <EmptyState>Belum ada mata pelajaran untuk kelasmu.</EmptyState>
       ) : (
         <MateriBrowser
-          studentId={student.id}
+          readIds={portal.readMaterialIds}
           subjects={portal.classes.map((c) => c.subject)}
           items={portal.materials.map((m) => ({
             id: m.id,

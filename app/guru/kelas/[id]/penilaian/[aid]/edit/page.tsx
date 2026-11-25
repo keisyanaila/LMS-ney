@@ -44,6 +44,7 @@ export default async function EditPenilaianPage({
             opensAt: toDatetimeLocal(assessment.opensAt),
             durationMinutes: assessment.durationMinutes,
             showResult: assessment.showResult,
+            shuffleQuestions: assessment.shuffleQuestions,
           }}
         />
       </Card>

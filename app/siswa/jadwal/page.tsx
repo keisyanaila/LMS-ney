@@ -6,7 +6,7 @@ import Icon from "@/components/Icon";
 import { Badge } from "@/components/admin/ui";
 import { EmptyState, PageTitle } from "@/components/siswa/widgets";
 
-export const metadata: Metadata = { title: "Jadwal Pelajaran | Learnova" };
+export const metadata: Metadata = { title: "Jadwal Pelajaran | RoboLearn" };
 
 export default async function JadwalPage() {
   const { student } = await requireStudent();

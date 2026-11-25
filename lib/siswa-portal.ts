@@ -1,6 +1,13 @@
+import { cache } from "react";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { announcements, assessments, materials, submissions } from "@/lib/schema";
+import {
+  announcements,
+  assessments,
+  materialReads,
+  materials,
+  submissions,
+} from "@/lib/schema";
 import {
   listStudentOnlineMany,
   listStudentTeachingClasses,
@@ -12,8 +19,19 @@ export type PortalOnline = Awaited<
   ReturnType<typeof listStudentOnlineMany>
 >[number] & { subject: string; teacherName: string };
 
-/** Ada di sini supaya halaman dashboard, materi, kuis, dan ujian memakai data yang sama. */
-export async function loadStudentPortal(student: StudentRef) {
+/**
+ * Ada di sini supaya halaman dashboard, materi, kuis, dan ujian memakai data yang sama.
+ * Di-cache per permintaan: layout (lonceng notifikasi) dan halaman tidak query dua kali.
+ */
+export function loadStudentPortal(student: StudentRef) {
+  return loadCached(student.id, student.classId);
+}
+
+const loadCached = cache(async (id: number, classId: number | null) =>
+  loadPortal({ id, classId })
+);
+
+async function loadPortal(student: StudentRef) {
   const classes = await listStudentTeachingClasses(student);
   const ids = classes.map((c) => c.id);
   const byId = new Map(classes.map((c) => [c.id, c]));
@@ -32,10 +50,11 @@ export async function loadStudentPortal(student: StudentRef) {
       ujian: [] as PortalOnline[],
       tugas: [],
       announcements: [],
+      readMaterialIds: [] as number[],
     };
   }
 
-  const [materialRows, kuis, ujian, tugasRows, announcementRows] =
+  const [materialRows, kuis, ujian, tugasRows, announcementRows, readRows] =
     await Promise.all([
       db
         .select()
@@ -60,6 +79,10 @@ export async function loadStudentPortal(student: StudentRef) {
         .where(inArray(announcements.teachingClassId, ids))
         .orderBy(desc(announcements.createdAt))
         .limit(8),
+      db
+        .select({ materialId: materialReads.materialId })
+        .from(materialReads)
+        .where(eq(materialReads.studentId, student.id)),
     ]);
 
   const mine =
@@ -69,6 +92,7 @@ export async function loadStudentPortal(student: StudentRef) {
           .select({
             assessmentId: submissions.assessmentId,
             submittedAt: submissions.submittedAt,
+            gradedAt: submissions.gradedAt,
           })
           .from(submissions)
           .where(
@@ -82,6 +106,7 @@ export async function loadStudentPortal(student: StudentRef) {
           );
 
   const submittedAt = new Map(mine.map((s) => [s.assessmentId, s.submittedAt]));
+  const gradedAt = new Map(mine.map((s) => [s.assessmentId, s.gradedAt]));
 
   return {
     classes,
@@ -89,9 +114,14 @@ export async function loadStudentPortal(student: StudentRef) {
     kuis: kuis.map(decorate) as PortalOnline[],
     ujian: ujian.map(decorate) as PortalOnline[],
     tugas: tugasRows.map((t) =>
-      decorate({ ...t, submittedAt: submittedAt.get(t.id) ?? null })
+      decorate({
+        ...t,
+        submittedAt: submittedAt.get(t.id) ?? null,
+        gradedAt: gradedAt.get(t.id) ?? null,
+      })
     ),
     announcements: announcementRows.map(decorate),
+    readMaterialIds: readRows.map((r) => r.materialId),
   };
 }
 

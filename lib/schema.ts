@@ -188,6 +188,27 @@ export const materials = pgTable("materials", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Penanda "sudah dibaca" materi per siswa (ikut pindah antar perangkat).
+export const materialReads = pgTable(
+  "material_reads",
+  {
+    id: serial("id").primaryKey(),
+    materialId: integer("material_id")
+      .notNull()
+      .references(() => materials.id, { onDelete: "cascade" }),
+    studentId: integer("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    readAt: timestamp("read_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("material_reads_material_student_unique").on(
+      table.materialId,
+      table.studentId
+    ),
+  ]
+);
+
 // Item penilaian: tugas, kuis, UTS, UAS, praktik
 export const assessments = pgTable("assessments", {
   id: serial("id").primaryKey(),
@@ -204,6 +225,8 @@ export const assessments = pgTable("assessments", {
   durationMinutes: integer("duration_minutes"),
   // false = nilai dan pembahasan disembunyikan dari siswa.
   showResult: boolean("show_result").default(false).notNull(),
+  // true = urutan soal dan pilihan jawaban diacak berbeda untuk tiap siswa.
+  shuffleQuestions: boolean("shuffle_questions").default(false).notNull(),
   // false = draf, belum terlihat oleh siswa.
   published: boolean("published").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

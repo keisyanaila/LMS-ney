@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import PanelSidebar from "@/components/PanelSidebar";
 import { requireStudent } from "@/lib/auth";
+import { loadStudentPortal } from "@/lib/siswa-portal";
+import { buildNotifications } from "@/lib/notifications";
+import NotificationBell from "@/components/siswa/NotificationBell";
 
 export const metadata: Metadata = {
-  title: "Learnova | Ruang Belajar",
+  title: "RoboLearn | Ruang Belajar",
 };
 
 export default async function SiswaLayout({
@@ -12,10 +15,13 @@ export default async function SiswaLayout({
 }: {
   children: ReactNode;
 }) {
-  const { user } = await requireStudent();
+  const { user, student } = await requireStudent();
+  const notifications = student.classId
+    ? buildNotifications(await loadStudentPortal(student))
+    : [];
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#f7f8ff] text-black lg:flex-row">
+    <div className="flex min-h-screen flex-col admin-page text-black lg:flex-row">
       <PanelSidebar
         name={user.fullName}
         panelLabel="Siswa"
@@ -29,7 +35,12 @@ export default async function SiswaLayout({
         ]}
       />
       <main className="min-w-0 flex-1 px-4 py-8 sm:px-8 lg:px-10">
-        <div className="mx-auto max-w-6xl">{children}</div>
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-5 flex justify-end">
+            <NotificationBell items={notifications} />
+          </div>
+          {children}
+        </div>
       </main>
     </div>
   );

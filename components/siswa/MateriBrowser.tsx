@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useState, useTransition } from "react";
 import Icon from "@/components/Icon";
 import { Badge } from "@/components/admin/ui";
 import { formatDateTime } from "@/lib/format";
+import { setMaterialRead } from "@/app/siswa/actions";
 
 type Item = {
   id: number;
@@ -17,43 +18,6 @@ type Item = {
   createdAt: string;
 };
 
-// Belum ada tabel "sudah dibaca" di database, jadi status baca disimpan di
-// browser siswa (per akun). Cukup untuk penanda pribadi; tidak ikut pindah
-// perangkat.
-const EVENT = "materi-dibaca-berubah";
-
-function storageKey(studentId: number) {
-  return `lms-materi-dibaca-${studentId}`;
-}
-
-function subscribe(callback: () => void) {
-  window.addEventListener("storage", callback);
-  window.addEventListener(EVENT, callback);
-
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(EVENT, callback);
-  };
-}
-
-function readRaw(key: string) {
-  try {
-    return window.localStorage.getItem(key) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function writeIds(key: string, ids: Set<number>) {
-  try {
-    window.localStorage.setItem(key, [...ids].join(","));
-  } catch {
-    // Penyimpanan diblokir: status baca hanya berlaku selama halaman terbuka.
-  }
-
-  window.dispatchEvent(new Event(EVENT));
-}
-
 function isVideo(url: string | null) {
   return !!url && /(youtube\.com|youtu\.be|vimeo\.com|\.mp4($|\?))/i.test(url);
 }
@@ -65,36 +29,49 @@ function fileLabel(name: string | null) {
 type StatusFilter = "semua" | "belum" | "sudah";
 
 export default function MateriBrowser({
-  studentId,
+  readIds,
   subjects,
   items,
 }: {
-  studentId: number;
+  readIds: number[];
   subjects: string[];
   items: Item[];
 }) {
-  const key = storageKey(studentId);
-  const raw = useSyncExternalStore(
-    subscribe,
-    () => readRaw(key),
-    () => ""
-  );
-  const read = useMemo(
-    () => new Set(raw.split(",").filter(Boolean).map(Number)),
-    [raw]
-  );
+  // Status baca disimpan di database; tampilan diperbarui langsung (optimistis).
+  const [read, setReadSet] = useState(() => new Set(readIds));
+  const [, startTransition] = useTransition();
 
   const [subject, setSubject] = useState("semua");
   const [status, setStatus] = useState<StatusFilter>("semua");
   const [query, setQuery] = useState("");
 
   function setRead(id: number, value: boolean) {
-    const next = new Set(read);
+    if (read.has(id) === value) return;
 
-    if (value) next.add(id);
-    else next.delete(id);
+    setReadSet((prev) => {
+      const next = new Set(prev);
 
-    writeIds(key, next);
+      if (value) next.add(id);
+      else next.delete(id);
+
+      return next;
+    });
+
+    startTransition(async () => {
+      const ok = await setMaterialRead(id, value);
+
+      // Gagal menyimpan: kembalikan tampilan seperti semula.
+      if (!ok) {
+        setReadSet((prev) => {
+          const next = new Set(prev);
+
+          if (value) next.delete(id);
+          else next.add(id);
+
+          return next;
+        });
+      }
+    });
   }
 
   const visible = items.filter((item) => {

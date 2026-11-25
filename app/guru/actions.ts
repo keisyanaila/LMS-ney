@@ -449,6 +449,7 @@ type OnlineFields = {
   opensAt: Date | null;
   durationMinutes: number | null;
   showResult: boolean;
+  shuffleQuestions: boolean;
 };
 
 /** Pengaturan khusus kuis/ujian online; string = pesan error. */
@@ -485,6 +486,7 @@ function readOnlineFields(
     opensAt,
     durationMinutes,
     showResult: formData.get("showResult") === "on",
+    shuffleQuestions: formData.get("shuffleQuestions") === "on",
   };
 }
 

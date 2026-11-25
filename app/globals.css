@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Learnova — lavender, soft blue, white, and deep purple. */
+/* RoboLearn — lavender, soft blue, white, and deep purple. */
 @theme {
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
@@ -71,7 +71,7 @@
   }
 }
 
-/* Satu-satunya gerak dekoratif: pita warna di halaman masuk naik saat dibuka. */
+/* Animasi lama halaman masuk (tidak dipakai lagi, aman dihapus). */
 @keyframes rise {
   from {
     transform: scaleY(0);
@@ -93,7 +93,7 @@
 }
 
 @layer components {
-  .learnova-surface {
+  .robolearn-surface {
     border: 1px solid rgba(117, 103, 220, .12);
     background: rgba(255,255,255,.88);
     box-shadow: 0 8px 24px rgba(74, 65, 160, .06);
@@ -101,7 +101,7 @@
 }
 
 
-/* Polesan visual panel admin Learnova */
+/* Polesan visual panel admin RoboLearn */
 @layer components {
   .admin-page {
     background:

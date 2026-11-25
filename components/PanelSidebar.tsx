@@ -31,8 +31,9 @@ export default function PanelSidebar({
     <>
       {/* Bilah atas (HP) */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-violet-100 bg-white px-4 py-3 text-blue-950 shadow-sm lg:hidden">
-        <Link href={homeHref} className="font-display text-lg font-semibold">
-          Learnova <span className="text-sm font-normal text-blue-500">{panelLabel}</span>
+        <Link href={homeHref} className="flex items-center gap-2">
+          <img src="/robolearn-logo.png" alt="RoboLearn" className="h-8 w-auto" />
+          <span className="sr-only">{panelLabel}</span>
         </Link>
         <button
           type="button"
@@ -59,11 +60,8 @@ export default function PanelSidebar({
       >
         <div className="flex items-start justify-between px-6 pt-8 pb-7">
           <Link href={homeHref} className="block">
-            <span className="flex items-center gap-2.5">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-500 text-lg font-black text-white shadow-md">L</span>
-              <span className="block font-display text-2xl font-bold tracking-tight leading-none">Learnova</span>
-            </span>
-            <span className="ml-[50px] mt-1.5 block text-xs font-medium text-violet-500">Panel {panelLabel}</span>
+            <img src="/robolearn-logo.png" alt="RoboLearn" className="h-11 w-auto" />
+            <span className="mt-2 inline-block rounded-full bg-violet-100 px-3 py-0.5 text-[11px] font-semibold text-violet-700">Panel {panelLabel}</span>
           </Link>
           <button
             type="button"

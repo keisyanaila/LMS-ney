@@ -267,6 +267,7 @@ type AssessmentInitial = {
   opensAt?: string;
   durationMinutes?: number | null;
   showResult?: boolean;
+  shuffleQuestions?: boolean;
 };
 
 const MODE_LABELS: Record<AssessmentMode, { noun: string; due: string }> = {
@@ -364,6 +365,21 @@ function AssessmentFields({
           />
         </label>
       </div>
+
+      {online && (
+        <label className="flex items-start gap-2 text-sm text-black/70">
+          <input
+            type="checkbox"
+            name="shuffleQuestions"
+            defaultChecked={initial?.shuffleQuestions ?? false}
+            className="mt-0.5"
+          />
+          <span>
+            Acak urutan soal dan pilihan jawaban untuk tiap siswa. Jangan
+            aktifkan jika ada pilihan seperti &quot;semua jawaban benar&quot;.
+          </span>
+        </label>
+      )}
 
       {online && (
         <label className="flex items-start gap-2 text-sm text-black/70">

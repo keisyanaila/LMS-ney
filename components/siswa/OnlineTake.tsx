@@ -92,6 +92,8 @@ export default async function OnlineTake({
         tcId={kelas.id}
         assessmentId={assessment.id}
         questions={questionList}
+        shuffle={assessment.shuffleQuestions}
+        attemptId={attempt.id}
         initial={initial}
         deadlineIso={deadline ? deadline.toISOString() : null}
         serverNowIso={now.toISOString()}

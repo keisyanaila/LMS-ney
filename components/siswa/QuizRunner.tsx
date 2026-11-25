@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   saveDraft,
   submitAttempt,
@@ -14,6 +21,34 @@ export type RunnerQuestion = {
   options: string[] | null;
   points: number;
 };
+
+// Pengacak dengan benih tetap: urutan sama setiap kali halaman dimuat ulang
+// untuk siswa yang sama, tetapi berbeda antar siswa.
+function seededRandom(seed: number) {
+  let a = seed >>> 0;
+
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffled<T>(items: T[], random: () => number): T[] {
+  const copy = [...items];
+
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+
+  return copy;
+}
 
 function formatClock(ms: number) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -34,6 +69,8 @@ export default function QuizRunner({
   initial,
   deadlineIso,
   serverNowIso,
+  shuffle = false,
+  attemptId = 0,
 }: {
   tcId: number;
   assessmentId: number;
@@ -41,6 +78,8 @@ export default function QuizRunner({
   initial: AnswerInput;
   deadlineIso: string | null;
   serverNowIso: string;
+  shuffle?: boolean;
+  attemptId?: number;
 }) {
   const [answers, setAnswers] = useState<AnswerInput>(initial);
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -121,6 +160,27 @@ export default function QuizRunner({
       : Boolean(answer?.essay?.trim());
   }).length;
 
+  // Urutan tampil. Jawaban tetap disimpan memakai nomor pilihan aslinya,
+  // jadi penilaian di server tidak berubah.
+  const view = useMemo(() => {
+    if (!shuffle) {
+      return questions.map((question) => ({
+        question,
+        order: (question.options ?? []).map((_, i) => i),
+      }));
+    }
+
+    const random = seededRandom(attemptId * 2654435761 + assessmentId);
+
+    return shuffled(questions, random).map((question) => ({
+      question,
+      order: shuffled(
+        (question.options ?? []).map((_, i) => i),
+        seededRandom(attemptId * 31 + question.id)
+      ),
+    }));
+  }, [questions, shuffle, attemptId, assessmentId]);
+
   const urgent = remaining !== null && remaining < 60_000;
 
   return (
@@ -148,7 +208,7 @@ export default function QuizRunner({
       </div>
 
       <div className="space-y-5">
-        {questions.map((question, index) => {
+        {view.map(({ question, order }, index) => {
           const answer = answers[question.id];
 
           return (
@@ -165,7 +225,7 @@ export default function QuizRunner({
 
               {question.type === "pilihan_ganda" ? (
                 <div className="mt-3 space-y-2">
-                  {(question.options ?? []).map((option, i) => (
+                  {order.map((i, position) => (
                     <label
                       key={i}
                       className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm transition ${
@@ -188,9 +248,9 @@ export default function QuizRunner({
                       />
                       <span>
                         <span className="font-semibold">
-                          {String.fromCharCode(65 + i)}.
+                          {String.fromCharCode(65 + position)}.
                         </span>{" "}
-                        {option}
+                        {question.options?.[i]}
                       </span>
                     </label>
                   ))}

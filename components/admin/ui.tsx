@@ -17,12 +17,12 @@ export function PageHeader({
   return (
     <section className="admin-hero relative mb-7 flex min-h-[190px] items-center justify-between overflow-hidden rounded-[26px] px-6 py-7 sm:px-9">
       <div className="relative z-10 max-w-2xl">
-        <p className="mb-3 text-xs font-bold uppercase tracking-[.16em] text-violet-600">Learnova Admin <span className="mx-1 text-violet-300">/</span> Panel</p>
+        <p className="mb-3 text-xs font-bold uppercase tracking-[.16em] text-violet-600">RoboLearn Admin <span className="mx-1 text-violet-300">/</span> Panel</p>
         <h1 className="font-display text-3xl font-bold tracking-tight text-blue-950 sm:text-4xl">{item.label}</h1>
         <p className="mt-2 max-w-xl text-sm leading-6 text-indigo-900/75 sm:text-base">{item.description}</p>
         {actions && <div className="mt-5 flex flex-wrap gap-2">{actions}</div>}
       </div>
-      <img src="/learnova-mascot.png" alt="Maskot robot Learnova" className="pointer-events-none absolute -right-2 -bottom-16 hidden h-[250px] w-[250px] object-contain drop-shadow-xl sm:block lg:right-8 lg:h-[270px] lg:w-[270px]" />
+      <img src="/robolearn-mascot.png" alt="Maskot robot RoboLearn" className="pointer-events-none absolute -right-2 -bottom-16 hidden h-[250px] w-[250px] object-contain drop-shadow-xl sm:block lg:right-8 lg:h-[270px] lg:w-[270px]" />
       <div className="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full border-[34px] border-white/25" />
     </section>
   );

@@ -119,6 +119,23 @@ kehadiran per mata pelajaran tetap ada di `/siswa/kelas/[id]` (dibuka dari kartu
 - **Jadwal pelajaran masih contoh.** Belum ada tabel jadwal; `lib/jadwal.ts`
   menyusun hari, jam, dan ruang otomatis dari mata pelajaran siswa. Ganti
   `buildSchedule()` dengan query database saat tabel jadwal dibuat.
-- **Status materi "sudah dibaca"** disimpan di browser siswa (localStorage),
-  bukan di database, jadi tidak ikut pindah perangkat.
+- **Status materi "sudah dibaca"** disimpan di database (tabel `material_reads`),
+  jadi ikut pindah perangkat.
 - **Video:** materi dengan tautan YouTube/Vimeo/.mp4 otomatis berlabel video.
+
+## Pembaruan RoboLearn
+
+- Nama aplikasi sekarang **RoboLearn** (logo: `public/robolearn-logo.png`,
+  maskot: `public/robolearn-mascot.png`, ikon tab: `app/icon.png`).
+- **Acak soal:** kuis/ujian punya opsi "Acak urutan soal dan pilihan jawaban".
+  Perlu menambah kolom baru, jalankan sekali: `npm run db:push`.
+  Urutan acak tetap sama jika siswa memuat ulang halaman, dan penilaian tidak
+  berubah karena jawaban tetap disimpan memakai nomor pilihan asli.
+- **Notifikasi siswa (ikon lonceng):** dihitung langsung dari data yang ada,
+  tanpa tabel tambahan (`lib/notifications.ts`). Isinya: tugas yang tenggatnya
+  3 hari ke depan, kuis/ujian yang sedang dibuka, tugas yang baru dinilai
+  (7 hari), materi baru yang belum dibaca (7 hari), dan pengumuman (3 hari).
+- **Status baca materi** sekarang di database (tabel `material_reads`). Status
+  lama yang tersimpan di browser tidak dipindahkan, jadi siswa mulai dari nol.
+- Setelah memperbarui kode ini, jalankan `npm run db:push` lagi untuk membuat
+  tabel `material_reads`.

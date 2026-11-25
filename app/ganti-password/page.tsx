@@ -6,7 +6,7 @@ import { logout } from "@/app/actions/auth";
 import ChangePasswordForm from "./form";
 
 export const metadata: Metadata = {
-  title: "Ganti Password | Learnova",
+  title: "Ganti Password | RoboLearn",
 };
 
 export default async function GantiPasswordPage() {

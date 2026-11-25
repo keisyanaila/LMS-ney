@@ -1,13 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { submissions } from "@/lib/schema";
+import { materialReads, materials, submissions } from "@/lib/schema";
 import { requireStudent } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
 import { getOwnedAssessment } from "@/lib/guru-data";
-import { getStudentTeachingClass } from "@/lib/siswa-data";
+import {
+  getStudentTeachingClass,
+  listStudentTeachingClasses,
+} from "@/lib/siswa-data";
 import { deleteFile, pickFile, uploadFile } from "@/lib/storage";
 
 export type SubmitState = { ok: boolean; message: string } | null;
@@ -131,5 +134,56 @@ export async function submitAssignment(
     if (file) await deleteFile(fileId);
 
     return { ok: false, message: "Gagal mengumpulkan tugas. Coba lagi." };
+  }
+}
+
+
+/** Tandai materi sudah/belum dibaca oleh siswa yang sedang login. */
+export async function setMaterialRead(
+  materialId: number,
+  read: boolean
+): Promise<boolean> {
+  const { student } = await requireStudent();
+
+  if (!Number.isInteger(materialId)) return false;
+
+  try {
+    // Pastikan materi memang milik salah satu mata pelajaran siswa ini.
+    const classes = await listStudentTeachingClasses(student);
+    const ids = classes.map((c) => c.id);
+
+    if (ids.length === 0) return false;
+
+    const [row] = await db
+      .select({ id: materials.id })
+      .from(materials)
+      .where(
+        and(eq(materials.id, materialId), inArray(materials.teachingClassId, ids))
+      )
+      .limit(1);
+
+    if (!row) return false;
+
+    if (read) {
+      await db
+        .insert(materialReads)
+        .values({ materialId, studentId: student.id })
+        .onConflictDoNothing();
+    } else {
+      await db
+        .delete(materialReads)
+        .where(
+          and(
+            eq(materialReads.materialId, materialId),
+            eq(materialReads.studentId, student.id)
+          )
+        );
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Set material read error:", error);
+
+    return false;
   }
 }

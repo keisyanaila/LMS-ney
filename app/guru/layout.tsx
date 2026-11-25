@@ -4,7 +4,7 @@ import PanelSidebar from "@/components/PanelSidebar";
 import { requireTeacher } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "Guru | Learnova",
+  title: "Guru | RoboLearn",
 };
 
 export default async function GuruLayout({
@@ -15,7 +15,7 @@ export default async function GuruLayout({
   const { user } = await requireTeacher();
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-black lg:flex-row">
+    <div className="flex min-h-screen flex-col admin-page text-black lg:flex-row">
       <PanelSidebar
         name={user.fullName}
         panelLabel="Guru"

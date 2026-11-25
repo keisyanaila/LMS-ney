@@ -4,15 +4,6 @@ import { useActionState, useState } from "react";
 import { login } from "@/app/actions/auth";
 import { safeSubmit } from "@/lib/safe-submit";
 
-// Lima pita warna dari palet Learnova.
-const STRIPES = [
-  { color: "#8b1d3f", grow: 19 },
-  { color: "#6b0e2e", grow: 21 },
-  { color: "#4a0e1f", grow: 21 },
-  { color: "#450629", grow: 20 },
-  { color: "#3e0825", grow: 19 },
-];
-
 const inputClass =
   "w-full rounded-lg border border-black/15 bg-white px-4 py-3 text-[15px] outline-none transition placeholder:text-black/35 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15";
 
@@ -22,38 +13,31 @@ export default function LoginForm() {
 
   return (
     <main className="flex min-h-dvh flex-col lg:flex-row">
-      {/* Sisi kiri: pita warna + sapaan */}
-      <section
-        className="relative flex h-56 shrink-0 items-end overflow-hidden lg:h-auto lg:w-1/2"
-      >
-        <div className="absolute inset-0 flex" aria-hidden="true">
-          {STRIPES.map((stripe, index) => (
-            <div
-              key={stripe.color}
-              className="stripe-rise h-full"
-              style={{
-                backgroundColor: stripe.color,
-                flexGrow: stripe.grow,
-                flexBasis: 0,
-                animationDelay: `${index * 90}ms`,
-              }}
-            />
-          ))}
-        </div>
+      {/* Sisi kiri: maskot + sapaan */}
+      <section className="relative flex min-h-[280px] shrink-0 items-center overflow-hidden bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-700 lg:min-h-0 lg:w-1/2">
+        <div className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full border-[40px] border-white/10" aria-hidden="true" />
+        <div className="pointer-events-none absolute -bottom-32 left-1/3 h-96 w-96 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
 
-        <div className="relative z-10 p-8 text-white sm:p-12 lg:p-16">
-          <p className="text-lg font-semibold tracking-wide text-blue-100">
-            Learnova
+        <div className="relative z-10 max-w-md p-8 text-white sm:p-12 lg:p-16">
+          <p className="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-semibold tracking-wide">
+            Belajar lebih cerdas, bersama-sama
           </p>
-          <h1 className="mt-3 max-w-md text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
+          <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
             Kelas, tugas, dan nilai dalam satu tempat.
           </h1>
         </div>
+
+        <img
+          src="/robolearn-mascot.png"
+          alt="Maskot robot RoboLearn"
+          className="pointer-events-none absolute -bottom-6 -right-6 h-48 w-auto drop-shadow-2xl sm:h-64 lg:bottom-8 lg:right-6 lg:h-[420px]"
+        />
       </section>
 
       {/* Sisi kanan: form */}
       <section className="flex flex-1 items-center justify-center bg-blue-50 px-6 py-12 sm:px-12">
         <div className="w-full max-w-sm">
+          <img src="/robolearn-logo.png" alt="RoboLearn" className="mb-6 h-12 w-auto" />
           <h2 className="text-2xl font-bold">Masuk</h2>
           <p className="mt-2 text-sm text-black/60">
             Pakai email atau username dari sekolah.

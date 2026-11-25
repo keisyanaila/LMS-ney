@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import OnlineBoard from "@/components/siswa/OnlineBoard";
 
-export const metadata: Metadata = { title: "Kuis | Learnova" };
+export const metadata: Metadata = { title: "Kuis | RoboLearn" };
 
 export default async function KuisPage({
   searchParams,
